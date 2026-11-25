@@ -3,516 +3,526 @@
 
 const SUPABASE_URL = "https://eqqvxcbxylzyaicauuhw.supabase.co";
 
-const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_cGNR8HhZ8x2hwWSJ6LBGpA_Qseo4i0-";
+const SUPABASE_PUBLISHABLE_KEY =
+  "sb_publishable_cGNR8HhZ8x2hwWSJ6LBGpA_Qseo4i0-";
 
 const supabaseClient = window.supabase.createClient(
-    SUPABASE_URL,
-    SUPABASE_PUBLISHABLE_KEY
+  SUPABASE_URL,
+  SUPABASE_PUBLISHABLE_KEY,
 );
 
 console.log("VOXORA connected to supabase!");
 document.addEventListener("DOMContentLoaded", function () {
-    const searchInput = document.querySelector("#searchInput");
-    const debateList = document.querySelector("#debateList");
-    const noResults = document.querySelector("#noResults");
-    const categoryButtons = document.querySelectorAll(".category-chip");
-    const feedButtons = document.querySelectorAll(".feed-tab");
-    const themeToggle = document.querySelector("#themeToggle");
-    const notificationToggle = document.querySelector("#notificationToggle");
-    const notificationPanel = document.querySelector("#notificationPanel");
-    const profileButton = document.querySelector("#profileButton");
-    const searchForm = document.querySelector("#searchForm");
+  const searchInput = document.querySelector("#searchInput");
+  const debateList = document.querySelector("#debateList");
+  const noResults = document.querySelector("#noResults");
+  const categoryButtons = document.querySelectorAll(".category-chip");
+  const feedButtons = document.querySelectorAll(".feed-tab");
+  const themeToggle = document.querySelector("#themeToggle");
+  const notificationToggle = document.querySelector("#notificationToggle");
+  const notificationPanel = document.querySelector("#notificationPanel");
+  const profileButton = document.querySelector("#profileButton");
+  const searchForm = document.querySelector("#searchForm");
 
-    if (!debateList) return;
+  if (!debateList) return;
 
-    let selectedCategory = "all";
-    let selectedFeed = "foryou";
-    const originalCards = getInitialCards();
+  let selectedCategory = "all";
+  let selectedFeed = "foryou";
+  const originalCards = getInitialCards();
 
-    function getInitialCards() {
-        return Array.from(debateList.querySelectorAll(".debate-card"));
+  function getInitialCards() {
+    return Array.from(debateList.querySelectorAll(".debate-card"));
+  }
+
+  originalCards.forEach(function (card, index) {
+    card.dataset.originalOrder = String(index);
+  });
+
+  function readStorage(key, fallback) {
+    try {
+      const value = localStorage.getItem(key);
+      if (value === null) return fallback;
+      try {
+        return JSON.parse(value);
+      } catch (error) {
+        return value;
+      }
+    } catch (error) {
+      return fallback;
     }
+  }
 
-    originalCards.forEach(function (card, index) {
-        card.dataset.originalOrder = String(index);
+  function writeStorage(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (error) {
+      // The page remains usable when browser storage is unavailable.
+    }
+  }
+
+  function getCardId(card) {
+    return card.querySelector("h3")?.textContent.trim() || "";
+  }
+
+  function getDebateCards() {
+    return Array.from(debateList.querySelectorAll(".debate-card"));
+  }
+
+  // Search and category filters work together.
+  function updateDebates() {
+    const searchTerm = searchInput
+      ? searchInput.value.trim().toLowerCase()
+      : "";
+    const cards = getDebateCards();
+    let visibleCount = 0;
+
+    cards.forEach(function (card) {
+      const matchesSearch = card.textContent.toLowerCase().includes(searchTerm);
+      const matchesCategory =
+        selectedCategory === "all" ||
+        card.dataset.category === selectedCategory;
+
+      const shouldShow = matchesSearch && matchesCategory;
+      card.hidden = !shouldShow;
+
+      if (shouldShow) visibleCount++;
     });
 
-    function readStorage(key, fallback) {
-        try {
-            const value = localStorage.getItem(key);
-            if (value === null) return fallback;
-            try {
-                return JSON.parse(value);
-            } catch (error) {
-                return value;
-            }
-        } catch (error) {
-            return fallback;
-        }
+    // Trending sorts by vote count; Latest sorts by date marker.
+    if (selectedFeed === "trending") {
+      cards.sort((a, b) => Number(b.dataset.votes) - Number(a.dataset.votes));
+    } else if (selectedFeed === "latest") {
+      cards.sort((a, b) => Number(b.dataset.date) - Number(a.dataset.date));
+    } else {
+      cards.sort(
+        (a, b) =>
+          Number(a.dataset.originalOrder) - Number(b.dataset.originalOrder),
+      );
     }
 
-    function writeStorage(key, value) {
-        try {
-            localStorage.setItem(key, JSON.stringify(value));
-        } catch (error) {
-            // The page remains usable when browser storage is unavailable.
-        }
-    }
+    cards.forEach((card) => debateList.appendChild(card));
 
-    function getCardId(card) {
-        return card.querySelector("h3")?.textContent.trim() || "";
-    }
+    if (noResults) noResults.hidden = visibleCount !== 0;
+  }
 
-    function getDebateCards() {
-        return Array.from(debateList.querySelectorAll(".debate-card"));
-    }
+  if (searchInput) {
+    searchInput.addEventListener("input", updateDebates);
+  }
 
-    // Search and category filters work together.
-    function updateDebates() {
-        const searchTerm = searchInput ? searchInput.value.trim().toLowerCase() : "";
-        const cards = getDebateCards();
-        let visibleCount = 0;
-
-        cards.forEach(function (card) {
-            const matchesSearch = card.textContent.toLowerCase().includes(searchTerm);
-            const matchesCategory = selectedCategory === "all" ||
-                card.dataset.category === selectedCategory;
-
-            const shouldShow = matchesSearch && matchesCategory;
-            card.hidden = !shouldShow;
-
-            if (shouldShow) visibleCount++;
-        });
-
-        // Trending sorts by vote count; Latest sorts by date marker.
-        if (selectedFeed === "trending") {
-            cards.sort((a, b) => Number(b.dataset.votes) - Number(a.dataset.votes));
-        } else if (selectedFeed === "latest") {
-            cards.sort((a, b) => Number(b.dataset.date) - Number(a.dataset.date));
-        } else {
-            cards.sort((a, b) => Number(a.dataset.originalOrder) - Number(b.dataset.originalOrder));
-        }
-
-        cards.forEach(card => debateList.appendChild(card));
-
-        if (noResults) noResults.hidden = visibleCount !== 0;
-    }
-
-    if (searchInput) {
-        searchInput.addEventListener("input", updateDebates);
-    }
-
-    if (searchForm) {
-        searchForm.addEventListener("submit", function (event) {
-            event.preventDefault();
-            updateDebates();
-            document.querySelector("#debates")?.scrollIntoView({ behavior: "smooth" });
-        });
-    }
-
-    categoryButtons.forEach(function (button) {
-        button.addEventListener("click", function () {
-            categoryButtons.forEach(item => item.classList.remove("active"));
-            categoryButtons.forEach(item => item.setAttribute("aria-pressed",
-                item === button ? "true" : "false"));
-            button.classList.add("active");
-            selectedCategory = button.dataset.category;
-            updateDebates();
-        });
+  if (searchForm) {
+    searchForm.addEventListener("submit", function (event) {
+      event.preventDefault();
+      updateDebates();
+      document
+        .querySelector("#debates")
+        ?.scrollIntoView({ behavior: "smooth" });
     });
+  }
 
-    feedButtons.forEach(function (button) {
-        button.addEventListener("click", function () {
-            feedButtons.forEach(item => item.classList.remove("active"));
-            button.classList.add("active");
-            feedButtons.forEach(item => item.setAttribute("aria-selected",
-                item === button ? "true" : "false"));
-            selectedFeed = button.dataset.feed;
-            updateDebates();
-        });
+  categoryButtons.forEach(function (button) {
+    button.addEventListener("click", function () {
+      categoryButtons.forEach((item) => item.classList.remove("active"));
+      categoryButtons.forEach((item) =>
+        item.setAttribute("aria-pressed", item === button ? "true" : "false"),
+      );
+      button.classList.add("active");
+      selectedCategory = button.dataset.category;
+      updateDebates();
     });
+  });
 
-    // Trending topic links select the matching category.
-    document.querySelectorAll(".trending-topic").forEach(function (topic) {
-        topic.addEventListener("click", function (event) {
-            event.preventDefault();
-            selectedCategory = topic.dataset.topic;
-            categoryButtons.forEach(function (button) {
-                button.classList.toggle("active", button.dataset.category === selectedCategory);
-                button.setAttribute("aria-pressed",
-                    button.dataset.category === selectedCategory ? "true" : "false");
-            });
-            updateDebates();
-            document.querySelector("#debates").scrollIntoView({ behavior: "smooth" });
-        });
+  feedButtons.forEach(function (button) {
+    button.addEventListener("click", function () {
+      feedButtons.forEach((item) => item.classList.remove("active"));
+      button.classList.add("active");
+      feedButtons.forEach((item) =>
+        item.setAttribute("aria-selected", item === button ? "true" : "false"),
+      );
+      selectedFeed = button.dataset.feed;
+      updateDebates();
     });
+  });
 
-    // Dark/light mode. The preference is remembered in this browser.
-    function setTheme(isLight) {
-        document.body.classList.toggle("light-mode", isLight);
-        if (themeToggle) {
-            themeToggle.textContent = isLight ? "☾" : "☼";
-            themeToggle.setAttribute("aria-label", isLight ? "Switch to dark mode" : "Switch to light mode");
-        }
-    }
+  // Trending topic links select the matching category.
+  document.querySelectorAll(".trending-topic").forEach(function (topic) {
+    topic.addEventListener("click", function (event) {
+      event.preventDefault();
+      selectedCategory = topic.dataset.topic;
+      categoryButtons.forEach(function (button) {
+        button.classList.toggle(
+          "active",
+          button.dataset.category === selectedCategory,
+        );
+        button.setAttribute(
+          "aria-pressed",
+          button.dataset.category === selectedCategory ? "true" : "false",
+        );
+      });
+      updateDebates();
+      document.querySelector("#debates").scrollIntoView({ behavior: "smooth" });
+    });
+  });
 
-    setTheme(readStorage("voxora-theme", "dark") === "light");
-
+  // Dark/light mode. The preference is remembered in this browser.
+  function setTheme(isLight) {
+    document.body.classList.toggle("light-mode", isLight);
     if (themeToggle) {
-        themeToggle.addEventListener("click", function () {
-            const isLight = !document.body.classList.contains("light-mode");
-            setTheme(isLight);
-            writeStorage("voxora-theme", isLight ? "light" : "dark");
-        });
+      themeToggle.textContent = isLight ? "☾" : "☼";
+      themeToggle.setAttribute(
+        "aria-label",
+        isLight ? "Switch to dark mode" : "Switch to light mode",
+      );
     }
+  }
 
-    // Show/hide the sample notification panel.
-    if (notificationToggle && notificationPanel) {
-        notificationToggle.addEventListener("click", function () {
-            notificationPanel.hidden = !notificationPanel.hidden;
-            notificationToggle.setAttribute("aria-expanded", String(!notificationPanel.hidden));
-        });
+  setTheme(readStorage("voxora-theme", "dark") === "light");
 
-        document.addEventListener("click", function (event) {
-            const clickedInside = notificationPanel.contains(event.target) ||
-                notificationToggle.contains(event.target);
-            if (!clickedInside) {
-                notificationPanel.hidden = true;
-                notificationToggle.setAttribute("aria-expanded", "false");
-            }
-        });
+  if (themeToggle) {
+    themeToggle.addEventListener("click", function () {
+      const isLight = !document.body.classList.contains("light-mode");
+      setTheme(isLight);
+      writeStorage("voxora-theme", isLight ? "light" : "dark");
+    });
+  }
 
-        document.addEventListener("keydown", function (event) {
-            if (event.key === "Escape" && !notificationPanel.hidden) {
-                notificationPanel.hidden = true;
-                notificationToggle.setAttribute("aria-expanded", "false");
-                notificationToggle.focus();
-            }
-        });
-    }
-
-
-    // Persist Like and Save interactions for this browser.
-    const likedDebates = new Set(readStorage("voxora-liked", []));
-    const savedDebates = new Set(readStorage("voxora-saved", []));
-
-    getDebateCards().forEach(function (card) {
-        const cardId = getCardId(card);
-        const likeButton = card.querySelector(".subtle-action:not(.save-button)");
-        const saveButton = card.querySelector(".save-button");
-
-        if (likeButton && likedDebates.has(cardId)) {
-            likeButton.classList.add("selected");
-            likeButton.textContent = "♥ Liked";
-        }
-
-        if (saveButton && savedDebates.has(cardId)) {
-            saveButton.classList.add("selected");
-            saveButton.textContent = "★ Saved";
-        }
+  // Show/hide the sample notification panel.
+  if (notificationToggle && notificationPanel) {
+    notificationToggle.addEventListener("click", function () {
+      notificationPanel.hidden = !notificationPanel.hidden;
+      notificationToggle.setAttribute(
+        "aria-expanded",
+        String(!notificationPanel.hidden),
+      );
     });
 
-    debateList.addEventListener("click", function (event) {
-        const button = event.target.closest(".subtle-action");
-        if (!button) return;
-
-        button.classList.toggle("selected");
-        const card = button.closest(".debate-card");
-        const cardId = card ? getCardId(card) : "";
-
-        if (button.classList.contains("save-button")) {
-            const isSelected = button.classList.contains("selected");
-            button.textContent = isSelected ? "★ Saved" : "☆ Save";
-            if (isSelected) savedDebates.add(cardId);
-            else savedDebates.delete(cardId);
-            writeStorage("voxora-saved", Array.from(savedDebates));
-        } else if (button.textContent.includes("Like")) {
-            button.textContent = button.classList.contains("selected") ? "♥ Liked" : "♡ Like";
-            const isSelected = button.classList.contains("selected");
-            if (isSelected) likedDebates.add(cardId);
-            else likedDebates.delete(cardId);
-            writeStorage("voxora-liked", Array.from(likedDebates));
-        } else if (button.textContent.includes("Discuss")) {
-            alert("Comments are a feature we'll add next!");
-        }
+    document.addEventListener("click", function (event) {
+      const clickedInside =
+        notificationPanel.contains(event.target) ||
+        notificationToggle.contains(event.target);
+      if (!clickedInside) {
+        notificationPanel.hidden = true;
+        notificationToggle.setAttribute("aria-expanded", "false");
+      }
     });
 
-    updateDebates();
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && !notificationPanel.hidden) {
+        notificationPanel.hidden = true;
+        notificationToggle.setAttribute("aria-expanded", "false");
+        notificationToggle.focus();
+      }
+    });
+  }
+
+  // Persist Like and Save interactions for this browser.
+  const likedDebates = new Set(readStorage("voxora-liked", []));
+  const savedDebates = new Set(readStorage("voxora-saved", []));
+
+  getDebateCards().forEach(function (card) {
+    const cardId = getCardId(card);
+    const likeButton = card.querySelector(".subtle-action:not(.save-button)");
+    const saveButton = card.querySelector(".save-button");
+
+    if (likeButton && likedDebates.has(cardId)) {
+      likeButton.classList.add("selected");
+      likeButton.textContent = "♥ Liked";
+    }
+
+    if (saveButton && savedDebates.has(cardId)) {
+      saveButton.classList.add("selected");
+      saveButton.textContent = "★ Saved";
+    }
+  });
+
+  debateList.addEventListener("click", function (event) {
+    const button = event.target.closest(".subtle-action");
+    if (!button) return;
+
+    button.classList.toggle("selected");
+    const card = button.closest(".debate-card");
+    const cardId = card ? getCardId(card) : "";
+
+    if (button.classList.contains("save-button")) {
+      const isSelected = button.classList.contains("selected");
+      button.textContent = isSelected ? "★ Saved" : "☆ Save";
+      if (isSelected) savedDebates.add(cardId);
+      else savedDebates.delete(cardId);
+      writeStorage("voxora-saved", Array.from(savedDebates));
+    } else if (button.textContent.includes("Like")) {
+      button.textContent = button.classList.contains("selected")
+        ? "♥ Liked"
+        : "♡ Like";
+      const isSelected = button.classList.contains("selected");
+      if (isSelected) likedDebates.add(cardId);
+      else likedDebates.delete(cardId);
+      writeStorage("voxora-liked", Array.from(likedDebates));
+    } else if (button.textContent.includes("Discuss")) {
+      const commentsContainer = button.closest(".debate-card")
+    .querySelector(".comments-container");
+
+      if (commentsContainer) {
+        const isHidden = commentsContainer.style.display === "none";
+        commentsContainer.style.display = isHidden ? "block" : "none";
+      }
+    }
+  });
+
+  updateDebates();
 });
 // VOXORA ACCOUNT WINDOW
 
 document.addEventListener("DOMContentLoaded", function () {
+  const profileButton = document.getElementById("profileButton");
+  const authOverlay = document.getElementById("authOverlay");
+  const authClose = document.getElementById("authClose");
 
-    const profileButton = document.getElementById("profileButton");
-    const authOverlay = document.getElementById("authOverlay");
-    const authClose = document.getElementById("authClose");
+  // Open account window
+  if (profileButton && authOverlay) {
+    profileButton.addEventListener("click", function () {
+      authOverlay.hidden = false;
+    });
+  }
 
-    // Open account window
-    if (profileButton && authOverlay) {
-        profileButton.addEventListener("click", function () {
-            authOverlay.hidden = false;
-        });
-    }
+  // Close account window
+  if (authClose && authOverlay) {
+    authClose.addEventListener("click", function () {
+      authOverlay.hidden = true;
+    });
+  }
 
-    // Close account window
-    if (authClose && authOverlay) {
-        authClose.addEventListener("click", function () {
-            authOverlay.hidden = true;
-        });
-    }
-
-    // Close when clicking outside the account window
-    if (authOverlay) {
-        authOverlay.addEventListener("click", function (event) {
-            if (event.target === authOverlay) {
-                authOverlay.hidden = true;
-            }
-        });
-    }
-
+  // Close when clicking outside the account window
+  if (authOverlay) {
+    authOverlay.addEventListener("click", function (event) {
+      if (event.target === authOverlay) {
+        authOverlay.hidden = true;
+      }
+    });
+  }
 });
 
 // VOXORA USER REGISTRATION
 
-
 // VOXORA REGISTRATION AND LOGIN
 
 document.addEventListener("DOMContentLoaded", function () {
+  const authForm = document.getElementById("authForm");
+  const authUsername = document.getElementById("authUsername");
+  const authEmail = document.getElementById("authEmail");
+  const authPassword = document.getElementById("authPassword");
+  const authMessage = document.getElementById("authMessage");
+  const authSubmit = document.getElementById("authSubmit");
+  const usernameField = document.getElementById("usernameField");
+  const authSwitch = document.getElementById("authSwitch");
+  const authSwitchButton = document.getElementById("authSwitchButton");
+  const authTitle = document.getElementById("authTitle");
+  const authDescription = document.getElementById("authDescription");
 
-    const authForm = document.getElementById("authForm");
-    const authUsername = document.getElementById("authUsername");
-    const authEmail = document.getElementById("authEmail");
-    const authPassword = document.getElementById("authPassword");
-    const authMessage = document.getElementById("authMessage");
-    const authSubmit = document.getElementById("authSubmit");
-    const usernameField = document.getElementById("usernameField");
-    const authSwitch = document.getElementById("authSwitch");
-    const authSwitchButton = document.getElementById("authSwitchButton");
-    const authTitle = document.getElementById("authTitle");
-    const authDescription = document.getElementById("authDescription");
+  if (!authForm) {
+    console.error("VOXORA account form not found.");
+    return;
+  }
 
-    if (!authForm) {
-        console.error("VOXORA account form not found.");
-        return;
+  let authMode = "signup";
+
+  // Switch between registration and login
+  authSwitchButton.addEventListener("click", function () {
+    authMode = authMode === "signup" ? "login" : "signup";
+
+    authMessage.textContent = "";
+
+    if (authMode === "login") {
+      usernameField.hidden = true;
+      authUsername.required = false;
+      authPassword.autocomplete = "current-password";
+
+      authTitle.textContent = "Welcome back.";
+      authDescription.textContent = "Sign in to continue the conversation.";
+      authSubmit.textContent = "Sign in";
+
+      authSwitch.firstChild.textContent = "New to VOXORA? ";
+      authSwitchButton.textContent = "Create account";
+    } else {
+      usernameField.hidden = false;
+      authUsername.required = true;
+      authPassword.autocomplete = "new-password";
+
+      authTitle.textContent = "Join the conversation.";
+      authDescription.textContent = "Create an account to share your voice.";
+      authSubmit.textContent = "Create account";
+
+      authSwitch.firstChild.textContent = "Already have an account? ";
+      authSwitchButton.textContent = "Sign in";
     }
+  });
 
-    let authMode = "signup";
+  // Handle registration and login
+  authForm.addEventListener("submit", async function (event) {
+    event.preventDefault();
 
-    // Switch between registration and login
-    authSwitchButton.addEventListener("click", function () {
+    const email = authEmail.value.trim();
+    const password = authPassword.value;
 
-        authMode = authMode === "signup" ? "login" : "signup";
+    authSubmit.disabled = true;
+    authMessage.textContent = "";
 
-        authMessage.textContent = "";
+    try {
+      if (authMode === "signup") {
+        const username = authUsername.value.trim().toLowerCase();
 
-        if (authMode === "login") {
-            usernameField.hidden = true;
-            authUsername.required = false;
-            authPassword.autocomplete = "current-password";
+        if (!/^[a-z0-9_]{3,24}$/.test(username)) {
+          throw new Error(
+            "Username must contain 3–24 letters, numbers or underscores.",
+          );
+        }
 
-            authTitle.textContent = "Welcome back.";
-            authDescription.textContent = "Sign in to continue the conversation.";
-            authSubmit.textContent = "Sign in";
+        if (password.length < 8) {
+          throw new Error("Password must contain at least 8 characters.");
+        }
 
-            authSwitch.firstChild.textContent = "New to VOXORA? ";
-            authSwitchButton.textContent = "Create account";
+        authSubmit.textContent = "Creating account...";
 
+        const { data, error } = await supabaseClient.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { username },
+          },
+        });
+
+        if (error) throw error;
+
+        if (data.session) {
+          authMessage.textContent = "Your VOXORA account has been created!";
         } else {
-            usernameField.hidden = false;
-            authUsername.required = true;
-            authPassword.autocomplete = "new-password";
-
-            authTitle.textContent = "Join the conversation.";
-            authDescription.textContent = "Create an account to share your voice.";
-            authSubmit.textContent = "Create account";
-
-            authSwitch.firstChild.textContent = "Already have an account? ";
-            authSwitchButton.textContent = "Sign in";
+          authMessage.textContent =
+            "Account created! Check your email to confirm your address.";
         }
+      } else {
+        authSubmit.textContent = "Signing in...";
 
-    });
+        const { error } = await supabaseClient.auth.signInWithPassword({
+          email,
+          password,
+        });
 
-    // Handle registration and login
-    authForm.addEventListener("submit", async function (event) {
+        if (error) throw error;
 
-        event.preventDefault();
+        authMessage.textContent = "Welcome back to VOXORA!";
 
-        const email = authEmail.value.trim();
-        const password = authPassword.value;
-
-        authSubmit.disabled = true;
-        authMessage.textContent = "";
-
-        try {
-
-            if (authMode === "signup") {
-
-                const username = authUsername.value.trim().toLowerCase();
-
-                if (!/^[a-z0-9_]{3,24}$/.test(username)) {
-                    throw new Error("Username must contain 3–24 letters, numbers or underscores.");
-                }
-
-                if (password.length < 8) {
-                    throw new Error("Password must contain at least 8 characters.");
-                }
-
-                authSubmit.textContent = "Creating account...";
-
-                const { data, error } =
-                    await supabaseClient.auth.signUp({
-                        email,
-                        password,
-                        options: {
-                            data: { username }
-                        }
-                    });
-
-                if (error) throw error;
-
-                if (data.session) {
-                    authMessage.textContent = "Your VOXORA account has been created!";
-                } else {
-                    authMessage.textContent =
-                        "Account created! Check your email to confirm your address.";
-                }
-
-            } else {
-
-                authSubmit.textContent = "Signing in...";
-
-                const { error } =
-                    await supabaseClient.auth.signInWithPassword({
-                        email,
-                        password
-                    });
-
-                if (error) throw error;
-
-                authMessage.textContent = "Welcome back to VOXORA!";
-
-                authForm.reset();
-            }
-
-        } catch (error) {
-
-            console.error("VOXORA authentication error:", error);
-            authMessage.textContent = error.message;
-
-        } finally {
-
-            authSubmit.disabled = false;
-            authSubmit.textContent =
-                authMode === "signup" ? "Create account" : "Sign in";
-
-        }
-
-    });
-
+        authForm.reset();
+      }
+    } catch (error) {
+      console.error("VOXORA authentication error:", error);
+      authMessage.textContent = error.message;
+    } finally {
+      authSubmit.disabled = false;
+      authSubmit.textContent =
+        authMode === "signup" ? "Create account" : "Sign in";
+    }
+  });
 });
-
 
 // VOXORA - Logged-in user profile
 
 document.addEventListener("DOMContentLoaded", function () {
-    const accountProfile = document.getElementById("accountProfile");
-    const accountUsername = document.getElementById("accountUsername");
-    const accountEmail = document.getElementById("accountEmail");
-    const authForm = document.getElementById("authForm");
-    const authSwitch = document.getElementById("authSwitch");
-    const authTitle = document.getElementById("authTitle");
-    const authDescription = document.getElementById("authDescription");
-    const logoutButton = document.getElementById("logoutButton");
-    const profileAvatar = document.getElementById("profileAvatar");
-    const profileButton = document.getElementById("profileButton");
-    const authMessage = document.getElementById("authMessage");
+  const accountProfile = document.getElementById("accountProfile");
+  const accountUsername = document.getElementById("accountUsername");
+  const accountEmail = document.getElementById("accountEmail");
+  const authForm = document.getElementById("authForm");
+  const authSwitch = document.getElementById("authSwitch");
+  const authTitle = document.getElementById("authTitle");
+  const authDescription = document.getElementById("authDescription");
+  const logoutButton = document.getElementById("logoutButton");
+  const profileAvatar = document.getElementById("profileAvatar");
+  const profileButton = document.getElementById("profileButton");
+  const authMessage = document.getElementById("authMessage");
 
-    // Display the signed-in user's information
-    async function updateAccountUI(user) {
-        if (user) {
-            let username = user.user_metadata?.username || "VOXORA User";
+  // Display the signed-in user's information
+  async function updateAccountUI(user) {
+    if (user) {
+      let username = user.user_metadata?.username || "VOXORA User";
 
-            // Get the username saved in the profiles table
-            const { data, error } = await supabaseClient
-                .from("profiles")
-                .select("username")
-                .eq("id", user.id)
-                .maybeSingle();
+      // Get the username saved in the profiles table
+      const { data, error } = await supabaseClient
+        .from("profiles")
+        .select("username")
+        .eq("id", user.id)
+        .maybeSingle();
 
-            if (error) {
-                console.error("Could not load profile:", error.message);
-            }
+      if (error) {
+        console.error("Could not load profile:", error.message);
+      }
 
-            if (data?.username) {
-                username = data.username;
-            }
+      if (data?.username) {
+        username = data.username;
+      }
 
-            accountUsername.textContent = "@" + username;
-            accountEmail.textContent = user.email || "";
+      accountUsername.textContent = "@" + username;
+      accountEmail.textContent = user.email || "";
 
-            accountProfile.hidden = false;
-            authForm.hidden = true;
-            authSwitch.hidden = true;
-            logoutButton.hidden = false;
+      accountProfile.hidden = false;
+      authForm.hidden = true;
+      authSwitch.hidden = true;
+      logoutButton.hidden = false;
 
-            authTitle.textContent = "Your VOXORA account";
-            authDescription.textContent = "You're signed in.";
-            authMessage.textContent = "";
+      authTitle.textContent = "Your VOXORA account";
+      authDescription.textContent = "You're signed in.";
+      authMessage.textContent = "";
 
-            profileAvatar.textContent = username.charAt(0).toUpperCase();
-            profileButton.setAttribute("aria-label", "Your account: " + username);
-        } else {
-            accountProfile.hidden = true;
-            authForm.hidden = false;
-            authSwitch.hidden = false;
-            logoutButton.hidden = true;
+      profileAvatar.textContent = username.charAt(0).toUpperCase();
+      profileButton.setAttribute("aria-label", "Your account: " + username);
+    } else {
+      accountProfile.hidden = true;
+      authForm.hidden = false;
+      authSwitch.hidden = false;
+      logoutButton.hidden = true;
 
-            authTitle.textContent = "Join the conversation.";
-            authDescription.textContent = "Create an account to share your voice.";
+      authTitle.textContent = "Join the conversation.";
+      authDescription.textContent = "Create an account to share your voice.";
 
-            profileAvatar.textContent = "Y";
-            profileButton.setAttribute("aria-label", "Sign in or view your profile");
-        }
+      profileAvatar.textContent = "Y";
+      profileButton.setAttribute("aria-label", "Sign in or view your profile");
+    }
+  }
+
+  // Check whether a user is already signed in
+  supabaseClient.auth.getSession().then(({ data, error }) => {
+    if (error) {
+      console.error("Session check failed:", error.message);
+      return;
     }
 
-    // Check whether a user is already signed in
-    supabaseClient.auth.getSession().then(({ data, error }) => {
-        if (error) {
-            console.error("Session check failed:", error.message);
-            return;
-        }
+    updateAccountUI(data.session?.user || null);
+  });
 
-        updateAccountUI(data.session?.user || null);
-    });
+  // Listen for login and logout events
+  supabaseClient.auth.onAuthStateChange((event, session) => {
+    updateAccountUI(session?.user || null);
+  });
 
-    // Listen for login and logout events
-    supabaseClient.auth.onAuthStateChange((event, session) => {
-        updateAccountUI(session?.user || null);
-    });
+  // Log out the current user
+  logoutButton.addEventListener("click", async function () {
+    logoutButton.disabled = true;
+    logoutButton.textContent = "Logging out...";
 
-    // Log out the current user
-    logoutButton.addEventListener("click", async function () {
-        logoutButton.disabled = true;
-        logoutButton.textContent = "Logging out...";
+    const { error } = await supabaseClient.auth.signOut();
 
-        const { error } = await supabaseClient.auth.signOut();
+    if (error) {
+      console.error("Logout failed:", error.message);
+      authMessage.textContent = "Could not log out. Please try again.";
+    }
 
-        if (error) {
-            console.error("Logout failed:", error.message);
-            authMessage.textContent = "Could not log out. Please try again.";
-        }
+    logoutButton.disabled = false;
+    logoutButton.textContent = "Log out";
+  });
 
-        logoutButton.disabled = false;
-        logoutButton.textContent = "Log out";
-    });
+  // CREATE DEBATE FUNCTIONALITY
 
-    // CREATE DEBATE FUNCTIONALITY
+  const createDebateForm = document.getElementById("createDebateForm");
+  const createDebateMessage = document.getElementById("createDebateMessage");
+  const publishDebateButton = document.getElementById("publishDebateButton");
 
-const createDebateForm = document.getElementById("createDebateForm");
-const createDebateMessage = document.getElementById("createDebateMessage");
-const publishDebateButton = document.getElementById("publishDebateButton");
-
-createDebateForm.addEventListener("submit", async function (event) {
+  createDebateForm.addEventListener("submit", async function (event) {
     event.preventDefault();
 
     publishDebateButton.disabled = true;
@@ -520,106 +530,148 @@ createDebateForm.addEventListener("submit", async function (event) {
     createDebateMessage.textContent = "";
 
     try {
-        const { data: { user }, error: userError } =
-            await supabaseClient.auth.getUser();
+      const {
+        data: { user },
+        error: userError,
+      } = await supabaseClient.auth.getUser();
 
-        if (userError || !user) {
-            createDebateMessage.textContent = "Please log in to publish a debate.";
-            return;
-        }
+      if (userError || !user) {
+        createDebateMessage.textContent = "Please log in to publish a debate.";
+        return;
+      }
 
-        const debate = {
-            author_id: user.id,
-            title: document.getElementById("debateTitle").value.trim(),
-            description: document.getElementById("debateDescription").value.trim(),
-            category: document.getElementById("debateCategory").value,
-            side_a: document.getElementById("debateSideA").value.trim(),
-            side_b: document.getElementById("debateSideB").value.trim()
-        };
+      const debate = {
+        author_id: user.id,
+        title: document.getElementById("debateTitle").value.trim(),
+        description: document.getElementById("debateDescription").value.trim(),
+        category: document.getElementById("debateCategory").value,
+        side_a: document.getElementById("debateSideA").value.trim(),
+        side_b: document.getElementById("debateSideB").value.trim(),
+      };
 
-        const { error } = await supabaseClient
-            .from("debates")
-            .insert(debate);
+      const { error } = await supabaseClient.from("debates").insert(debate);
 
-        if (error) {
-            throw error;
-        }
+      if (error) {
+        throw error;
+      }
 
-        createDebateMessage.textContent = "Your debate has been published successfully!";
-        createDebateForm.reset();
-        await loadDebates();
+      createDebateMessage.textContent =
+        "Your debate has been published successfully!";
+      createDebateForm.reset();
+      await loadDebates();
     } catch (error) {
-        console.error("Debate publishing error:", error.message);
-        createDebateMessage.textContent = "Something went wrong. Please try again.";
+      console.error("Debate publishing error:", error.message);
+      createDebateMessage.textContent =
+        "Something went wrong. Please try again.";
     } finally {
-        publishDebateButton.disabled = false;
-        publishDebateButton.textContent = "Publish debate";
+      publishDebateButton.disabled = false;
+      publishDebateButton.textContent = "Publish debate";
     }
-});
+  });
 
-// LOAD DEBATES FROM SUPABASE
+  // ---------- Load voting totals ----------
+  async function fetchDebateVotes(debateId) {
+    const { data, error } = await supabaseClient.rpc("get_debate_vote_counts", {
+      p_debate_id: debateId,
+    });
 
-async function loadDebates() {
+    if (error) {
+      console.error("Vote count error:", error.message);
+
+      return {
+        sideA: 0,
+        sideB: 0,
+      };
+    }
+
+    const result = Array.isArray(data) ? data[0] : data;
+
+    return {
+      sideA: Number(result?.side_a_count || 0),
+      sideB: Number(result?.side_b_count || 0),
+    };
+  }
+
+  // LOAD DEBATES FROM SUPABASE
+
+  async function loadDebates() {
     const debateList = document.getElementById("debateList");
 
     debateList.innerHTML = "<p>Loading debates...</p>";
 
     try {
-        // 1. Retrieve debates from Supabase
-        const { data: debates, error } = await supabaseClient
-            .from("debates")
-            .select("*")
-            .order("created_at", { ascending: false });
+      // 1. Retrieve debates from Supabase
+      const { data: debates, error } = await supabaseClient
+        .from("debates")
+        .select("*")
+        .order("created_at", { ascending: false });
 
-        if (error) {
-            throw error;
-        }
+      if (error) {
+        throw error;
+      }
 
-        // 2. Handle an empty feed
-        if (!debates || debates.length === 0) {
-            debateList.innerHTML = "<p>No debates yet. Be the first to start one!</p>";
-            return;
-        }
+      // 2. Handle an empty feed
+      if (!debates || debates.length === 0) {
+        debateList.innerHTML =
+          "<p>No debates yet. Be the first to start one!</p>";
+        return;
+      }
 
-        // 3. Retrieve the authors' profile information
-        const authorIds = [...new Set(debates.map(debate => debate.author_id))];
+      // 3. Retrieve the authors' profile information
+      const authorIds = [...new Set(debates.map((debate) => debate.author_id))];
 
-        const { data: profiles, error: profileError } = await supabaseClient
-            .from("profiles")
-            .select("id, username, full_name")
-            .in("id", authorIds);
+      const { data: profiles, error: profileError } = await supabaseClient
+        .from("profiles")
+        .select("id, username, full_name")
+        .in("id", authorIds);
 
-        if (profileError) {
-            console.warn("Could not load profiles:", profileError.message);
-        }
+      if (profileError) {
+        console.warn("Could not load profiles:", profileError.message);
+      }
 
-        // 4. Match each debate with its author
-        const profileMap = {};
+      // 4. Match each debate with its author
+      const profileMap = {};
+      profiles.forEach((profile) => (profileMap[profile.id] = profile));
+      // Load voting totals for all debates
+      const voteResults = await Promise.all(
+        debates.map((debate) => fetchDebateVotes(debate.id)),
+      );
 
-        (profiles || []).forEach(profile => {
-            profileMap[profile.id] = profile;
-        });
+      // 5. Create a card for each debate
+      debateList.innerHTML = (await Promise.all(
+        debates.map(async (debate, index) => {
+          const votes = voteResults[index];
+          const { data: comments, error: commentsError } = await supabaseClient
+            .from("comments")
+            .select("id, content, created_at")
+            .eq("debate_id", debate.id)
+            .is("parent_id", null)
+            .order("created_at", { ascending: true });
 
-        // 5. Create a card for each debate
-        debateList.innerHTML = debates.map(debate => {
-            const profile = profileMap[debate.author_id];
+          if (commentsError) {
+            console.error("Could not load comments:", commentsError.message);
+          }
+          const totalVotes = votes.sideA + votes.sideB;
+          const sideAPercentage =
+            totalVotes === 0 ? 50 : (votes.sideA / totalVotes) * 100;
+          const profile = profileMap[debate.author_id];
 
-            const authorName = profile
-                ? (profile.username || profile.full_name || "Community member")
-                : "Community member";
+          const authorName = profile
+            ? profile.username || profile.full_name || "Community member"
+            : "Community member";
 
-            const initials = authorName
-                .split(/\s+/)
-                .map(word => word.charAt(0))
-                .join("")
-                .substring(0, 2)
-                .toUpperCase();
+          const initials = authorName
+            .split(/\s+/)
+            .map((word) => word.charAt(0))
+            .join("")
+            .substring(0, 2)
+            .toUpperCase();
 
-            const category = debate.category.charAt(0).toUpperCase()
-                + debate.category.slice(1);
+          const category =
+            debate.category.charAt(0).toUpperCase() + debate.category.slice(1);
 
-            return `
-                <article class="card debate-card" data-category="${escapeHTML(debate.category)}" data-votes="0">
+          return `
+                <article class="card debate-card" data-debate-id="${debate.id}" data-category="${escapeHTML(debate.category)}" data-votes="${totalVotes}">
 
                     <div class="debate-author">
                         <span class="avatar avatar-purple">${escapeHTML(initials)}</span>
@@ -628,66 +680,211 @@ async function loadDebates() {
                             <small>Community member · ${formatDebateDate(debate.created_at)}</small>
                         </div>
                     </div>
+                    <h3 class="debate-title">${escapeHTML(debate.title)}</h3>
 
-                    <p class="category">${escapeHTML(category)}</p>
+<p class="debate-description">
+    ${escapeHTML(debate.description)}
+</p>
 
-                    <h3>${escapeHTML(debate.title)}</h3>
+                   <p class="category">
+                    <small>${votes.sideA} For · ${votes.sideB} Against · ${totalVotes} votes</small>
+                    <div class="voting-actions">
+    <button class="vote-button" type="button" data-vote="side_a">
+        For
+    </button>
 
-                    <p class="debate-description">
-                        ${escapeHTML(debate.description)}
-                    </p>
-
-                    <div class="debate-positions">
-                        <p><strong>For:</strong> ${escapeHTML(debate.side_a)}</p>
-                        <p><strong>Against:</strong> ${escapeHTML(debate.side_b)}</p>
-                    </div>
-
-                    <div class="bar">
-                        <div class="bar-blue" style="width: 50%"></div>
-                    </div>
-
-                    <small>No votes yet</small>
+    <button class="vote-button" type="button" data-vote="side_b"">
+        Against
+    </button>
+</div>
 
                     <div class="card-actions">
-                        <button class="subtle-action" type="button">♡ Like</button>
-                        <button class="subtle-action" type="button">◯ Discuss</button>
-                        <button class="subtle-action save-button" type="button">☆ Save</button>
-                    </div>
+    <button class="subtle-action" type="button">♡ Like</button>
+    <button class="subtle-action" type="button">◯ Discuss</button>
+    <button class="subtle-action save-button" type="button">☆ Save</button>
+</div>
+
+<div class="comments-container" style="display: none;">
+    <div class="comments-list">
+    ${
+      (comments || []).map(comment => `
+        <div class="comment-item">
+            <p class="comment-content">${escapeHTML(comment.content)}</p>
+            <small class="comment-date">
+                ${formatDebateDate(comment.created_at)}
+            </small>
+        </div>
+      `).join("")
+    }
+</div>
+
+    <form class="comment-form" data-debate-id="${debate.id}">
+        <textarea
+            class="comment-input"
+            placeholder="Share your thoughts..."
+            maxlength="1000"
+            required
+        ></textarea>
+
+        <button type="submit" class="comment-submit">Post comment</button>
+    </form>
+</div>
 
                 </article>
             `;
-        }).join("");
-
+        }),
+      )).join("");
     } catch (error) {
-        console.error("Could not load debates:", error.message);
-        debateList.innerHTML = "<p>We couldn't load debates. Please refresh and try again.</p>";
+      console.error("Could not load debates:", error.message);
+      debateList.innerHTML =
+        "<p>We couldn't load debates. Please refresh and try again.</p>";
+    }
+  }
+
+  window.loadDebates = loadDebates;
+
+  // ---------- VOTING SYSTEM ----------
+  document
+    .getElementById("debateList")
+    .addEventListener("click", async function (event) {
+      // HANDLE DISCUSS BUTTON
+      const discussButton = event.target.closest(".discuss-button");
+
+      if (discussButton) {
+        const debateId = discussButton.dataset.debateId;
+        const commentsContainer = document.getElementById(
+          `comments-${debateId}`,
+        );
+
+        if (commentsContainer) {
+          const isHidden = commentsContainer.style.display === "none";
+          commentsContainer.style.display = isHidden ? "block" : "none";
+        }
+
+        return;
+      }
+
+      // HANDLE VOTING
+      const voteButton = event.target.closest(".vote-button");
+
+      if (!voteButton) return;
+
+      const debateCard = voteButton.closest(".debate-card");
+      const debateId = debateCard.dataset.debateId;
+      const selectedVote = voteButton.dataset.vote;
+
+      // Check whether the user is logged in
+      const {
+        data: { user },
+        error: userError,
+      } = await supabaseClient.auth.getUser();
+
+      if (userError || !user) {
+        alert("Please log in before voting.");
+        return;
+      }
+
+      voteButton.disabled = true;
+
+      try {
+        // Save the vote, or update the user's existing vote
+        const { error } = await supabaseClient.from("debate_votes").upsert(
+          {
+            debate_id: debateId,
+            user_id: user.id,
+            vote: selectedVote,
+          },
+          {
+            onConflict: "debate_id,user_id",
+          },
+        );
+
+        if (error) {
+          throw error;
+        }
+
+        // Refresh the debate cards to display updated totals
+        await loadDebates();
+      } catch (error) {
+        console.error("Voting error:", error.message);
+        alert("Your vote could not be saved. Please try again.");
+      } finally {
+        voteButton.disabled = false;
+      }
+    });
+
+    // ---------- COMMENT SYSTEM ----------
+
+document
+  .getElementById("debateList")
+  .addEventListener("submit", async function (event) {
+    const commentForm = event.target.closest(".comment-form");
+
+    if (!commentForm) return;
+
+    event.preventDefault();
+
+    const debateId = commentForm.dataset.debateId;
+    const commentInput = commentForm.querySelector(".comment-input");
+    const content = commentInput.value.trim();
+    const submitButton = commentForm.querySelector(".comment-submit");
+
+    if (!content) return;
+
+    const {
+      data: { user },
+      error: userError,
+    } = await supabaseClient.auth.getUser();
+
+    if (userError || !user) {
+      alert("Please log in before commenting.");
+      return;
     }
 
-}
+    submitButton.disabled = true;
 
-window.loadDebates = loadDebates;
+    try {
+      const { error } = await supabaseClient
+        .from("comments")
+        .insert({
+          debate_id: debateId,
+          author_id: user.id,
+          content: content
+        });
 
+      if (error) throw error;
 
-// PROTECT HTML FROM UNSAFE USER INPUT
+      commentInput.value = "";
 
-function escapeHTML(value) {
+      await loadDebates();
+
+    } catch (error) {
+      console.error("Comment error:", error.message);
+      alert("Your comment could not be published. Please try again.");
+    } finally {
+      submitButton.disabled = false;
+    }
+  });
+
+  // PROTECT HTML FROM UNSAFE USER INPUT
+
+  function escapeHTML(value) {
     return String(value ?? "").replace(/[&<>"']/g, function (character) {
-        const replacements = {
-            "&": "&amp;",
-            "<": "&lt;",
-            ">": "&gt;",
-            '"': "&quot;",
-            "'": "&#39;"
-        };
+      const replacements = {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      };
 
-        return replacements[character];
+      return replacements[character];
     });
-}
+  }
 
+  // FORMAT DEBATE DATE
 
-// FORMAT DEBATE DATE
-
-function formatDebateDate(dateString) {
+  function formatDebateDate(dateString) {
     const date = new Date(dateString);
     const now = new Date();
 
@@ -703,10 +900,9 @@ function formatDebateDate(dateString) {
     if (days < 7) return `${days} days ago`;
 
     return date.toLocaleDateString();
-}
+  }
 
+  // LOAD THE FEED WHEN THE PAGE OPENS
 
-// LOAD THE FEED WHEN THE PAGE OPENS
-
-loadDebates();
+  loadDebates();
 });
