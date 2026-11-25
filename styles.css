@@ -476,3 +476,98 @@ footer p + p { margin-top: 5px; }
     min-width: 160px;
     cursor: pointer;
 }
+
+/* ==========================================
+   VOXORA DEBATE ACTION BUTTONS
+   ========================================== */
+
+.debate-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 20px;
+}
+
+.debate-actions button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+
+    padding: 9px 15px;
+
+    background: #172338;
+    color: #a9bad3;
+
+    border: 1px solid #263750;
+    border-radius: 10px;
+
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+
+    cursor: pointer;
+
+    transition: all 0.2s ease;
+}
+
+/* Hover effect */
+.debate-actions button:hover {
+    background: #22334c;
+    border-color: #3b82f6;
+    color: #ffffff;
+    transform: translateY(-2px);
+}
+
+/* LIKE BUTTON */
+.debate-actions .like-button {
+    color: #a9bad3;
+}
+
+.debate-actions .like-button.liked {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.35);
+    color: #ff6b81;
+}
+
+/* DISCUSS BUTTON */
+.debate-actions .discuss-button {
+    background: #172338;
+    color: #a9bad3;
+}
+
+.debate-actions .discuss-button:hover {
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+}
+
+/* SAVE BUTTON */
+.debate-actions .save-button {
+    background: #172338;
+    color: #a9bad3;
+}
+
+.debate-actions .save-button.saved {
+    background: rgba(59, 130, 246, 0.12);
+    border-color: rgba(59, 130, 246, 0.35);
+    color: #60a5fa;
+}
+
+/* Button click effect */
+.debate-actions button:active {
+    transform: scale(0.96);
+}
+
+/* Make buttons fit smaller screens */
+@media (max-width: 480px) {
+
+    .debate-actions {
+        gap: 8px;
+    }
+
+    .debate-actions button {
+        padding: 8px 11px;
+        font-size: 13px;
+    }
+}
