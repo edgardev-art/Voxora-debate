@@ -709,4 +709,5 @@ function formatDebateDate(dateString) {
 // LOAD THE FEED WHEN THE PAGE OPENS
 
 loadDebates();
+    window.loadDebates = loadDebates;
 });
