@@ -1,713 +1,1392 @@
-// VOXORA - beginner-friendly interactive features
-// VOXORA - Supabase connection
-
-const SUPABASE_URL = "https://eqqvxcbxylzyaicauuhw.supabase.co";
-
-const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_cGNR8HhZ8x2hwWSJ6LBGpA_Qseo4i0-";
-
-const supabaseClient = window.supabase.createClient(
-    SUPABASE_URL,
-    SUPABASE_PUBLISHABLE_KEY
-);
-
-console.log("VOXORA connected to supabase!");
-document.addEventListener("DOMContentLoaded", function () {
-    const searchInput = document.querySelector("#searchInput");
-    const debateList = document.querySelector("#debateList");
-    const noResults = document.querySelector("#noResults");
-    const categoryButtons = document.querySelectorAll(".category-chip");
-    const feedButtons = document.querySelectorAll(".feed-tab");
-    const themeToggle = document.querySelector("#themeToggle");
-    const notificationToggle = document.querySelector("#notificationToggle");
-    const notificationPanel = document.querySelector("#notificationPanel");
-    const profileButton = document.querySelector("#profileButton");
-    const searchForm = document.querySelector("#searchForm");
-
-    if (!debateList) return;
-
-    let selectedCategory = "all";
-    let selectedFeed = "foryou";
-    const originalCards = getInitialCards();
-
-    function getInitialCards() {
-        return Array.from(debateList.querySelectorAll(".debate-card"));
-    }
-
-    originalCards.forEach(function (card, index) {
-        card.dataset.originalOrder = String(index);
-    });
-
-    function readStorage(key, fallback) {
-        try {
-            const value = localStorage.getItem(key);
-            if (value === null) return fallback;
-            try {
-                return JSON.parse(value);
-            } catch (error) {
-                return value;
-            }
-        } catch (error) {
-            return fallback;
-        }
-    }
-
-    function writeStorage(key, value) {
-        try {
-            localStorage.setItem(key, JSON.stringify(value));
-        } catch (error) {
-            // The page remains usable when browser storage is unavailable.
-        }
-    }
-
-    function getCardId(card) {
-        return card.querySelector("h3")?.textContent.trim() || "";
-    }
-
-    function getDebateCards() {
-        return Array.from(debateList.querySelectorAll(".debate-card"));
-    }
-
-    // Search and category filters work together.
-    function updateDebates() {
-        const searchTerm = searchInput ? searchInput.value.trim().toLowerCase() : "";
-        const cards = getDebateCards();
-        let visibleCount = 0;
-
-        cards.forEach(function (card) {
-            const matchesSearch = card.textContent.toLowerCase().includes(searchTerm);
-            const matchesCategory = selectedCategory === "all" ||
-                card.dataset.category === selectedCategory;
-
-            const shouldShow = matchesSearch && matchesCategory;
-            card.hidden = !shouldShow;
-
-            if (shouldShow) visibleCount++;
-        });
-
-        // Trending sorts by vote count; Latest sorts by date marker.
-        if (selectedFeed === "trending") {
-            cards.sort((a, b) => Number(b.dataset.votes) - Number(a.dataset.votes));
-        } else if (selectedFeed === "latest") {
-            cards.sort((a, b) => Number(b.dataset.date) - Number(a.dataset.date));
-        } else {
-            cards.sort((a, b) => Number(a.dataset.originalOrder) - Number(b.dataset.originalOrder));
-        }
-
-        cards.forEach(card => debateList.appendChild(card));
-
-        if (noResults) noResults.hidden = visibleCount !== 0;
-    }
-
-    if (searchInput) {
-        searchInput.addEventListener("input", updateDebates);
-    }
-
-    if (searchForm) {
-        searchForm.addEventListener("submit", function (event) {
-            event.preventDefault();
-            updateDebates();
-            document.querySelector("#debates")?.scrollIntoView({ behavior: "smooth" });
-        });
-    }
-
-    categoryButtons.forEach(function (button) {
-        button.addEventListener("click", function () {
-            categoryButtons.forEach(item => item.classList.remove("active"));
-            categoryButtons.forEach(item => item.setAttribute("aria-pressed",
-                item === button ? "true" : "false"));
-            button.classList.add("active");
-            selectedCategory = button.dataset.category;
-            updateDebates();
-        });
-    });
-
-    feedButtons.forEach(function (button) {
-        button.addEventListener("click", function () {
-            feedButtons.forEach(item => item.classList.remove("active"));
-            button.classList.add("active");
-            feedButtons.forEach(item => item.setAttribute("aria-selected",
-                item === button ? "true" : "false"));
-            selectedFeed = button.dataset.feed;
-            updateDebates();
-        });
-    });
-
-    // Trending topic links select the matching category.
-    document.querySelectorAll(".trending-topic").forEach(function (topic) {
-        topic.addEventListener("click", function (event) {
-            event.preventDefault();
-            selectedCategory = topic.dataset.topic;
-            categoryButtons.forEach(function (button) {
-                button.classList.toggle("active", button.dataset.category === selectedCategory);
-                button.setAttribute("aria-pressed",
-                    button.dataset.category === selectedCategory ? "true" : "false");
-            });
-            updateDebates();
-            document.querySelector("#debates").scrollIntoView({ behavior: "smooth" });
-        });
-    });
-
-    // Dark/light mode. The preference is remembered in this browser.
-    function setTheme(isLight) {
-        document.body.classList.toggle("light-mode", isLight);
-        if (themeToggle) {
-            themeToggle.textContent = isLight ? "☾" : "☼";
-            themeToggle.setAttribute("aria-label", isLight ? "Switch to dark mode" : "Switch to light mode");
-        }
-    }
-
-    setTheme(readStorage("voxora-theme", "dark") === "light");
-
-    if (themeToggle) {
-        themeToggle.addEventListener("click", function () {
-            const isLight = !document.body.classList.contains("light-mode");
-            setTheme(isLight);
-            writeStorage("voxora-theme", isLight ? "light" : "dark");
-        });
-    }
-
-    // Show/hide the sample notification panel.
-    if (notificationToggle && notificationPanel) {
-        notificationToggle.addEventListener("click", function () {
-            notificationPanel.hidden = !notificationPanel.hidden;
-            notificationToggle.setAttribute("aria-expanded", String(!notificationPanel.hidden));
-        });
-
-        document.addEventListener("click", function (event) {
-            const clickedInside = notificationPanel.contains(event.target) ||
-                notificationToggle.contains(event.target);
-            if (!clickedInside) {
-                notificationPanel.hidden = true;
-                notificationToggle.setAttribute("aria-expanded", "false");
-            }
-        });
-
-        document.addEventListener("keydown", function (event) {
-            if (event.key === "Escape" && !notificationPanel.hidden) {
-                notificationPanel.hidden = true;
-                notificationToggle.setAttribute("aria-expanded", "false");
-                notificationToggle.focus();
-            }
-        });
-    }
-
-
-    // Persist Like and Save interactions for this browser.
-    const likedDebates = new Set(readStorage("voxora-liked", []));
-    const savedDebates = new Set(readStorage("voxora-saved", []));
-
-    getDebateCards().forEach(function (card) {
-        const cardId = getCardId(card);
-        const likeButton = card.querySelector(".subtle-action:not(.save-button)");
-        const saveButton = card.querySelector(".save-button");
-
-        if (likeButton && likedDebates.has(cardId)) {
-            likeButton.classList.add("selected");
-            likeButton.textContent = "♥ Liked";
-        }
-
-        if (saveButton && savedDebates.has(cardId)) {
-            saveButton.classList.add("selected");
-            saveButton.textContent = "★ Saved";
-        }
-    });
-
-    debateList.addEventListener("click", function (event) {
-        const button = event.target.closest(".subtle-action");
-        if (!button) return;
-
-        button.classList.toggle("selected");
-        const card = button.closest(".debate-card");
-        const cardId = card ? getCardId(card) : "";
-
-        if (button.classList.contains("save-button")) {
-            const isSelected = button.classList.contains("selected");
-            button.textContent = isSelected ? "★ Saved" : "☆ Save";
-            if (isSelected) savedDebates.add(cardId);
-            else savedDebates.delete(cardId);
-            writeStorage("voxora-saved", Array.from(savedDebates));
-        } else if (button.textContent.includes("Like")) {
-            button.textContent = button.classList.contains("selected") ? "♥ Liked" : "♡ Like";
-            const isSelected = button.classList.contains("selected");
-            if (isSelected) likedDebates.add(cardId);
-            else likedDebates.delete(cardId);
-            writeStorage("voxora-liked", Array.from(likedDebates));
-        } else if (button.textContent.includes("Discuss")) {
-            alert("Comments are a feature we'll add next!");
-        }
-    });
-
-    updateDebates();
-});
-// VOXORA ACCOUNT WINDOW
+// ============================================
+// VOXORA - Main JavaScript
+// ============================================
 
 document.addEventListener("DOMContentLoaded", function () {
+
+    // ============================================
+    // 1. SUPABASE CONNECTION
+    // ============================================
+
+    const SUPABASE_URL = "https://eqqvxcbxylzyaicauuhw.supabase.co";
+
+    const SUPABASE_KEY = "sb_publishable_cGNR8HhZ8x2hwWSJ6LBGpA_Qseo4i0-";
+
+    const supabaseClient = window.supabase.createClient(
+        SUPABASE_URL,
+        SUPABASE_KEY
+    );
+    console.log("VOXORA connected to Supabase!");
+
+    // ============================================
+    // 2. ELEMENTS
+    // ============================================
+    const debateList = document.getElementById("debateList");
+    const noResults = document.getElementById("noResults");
+
+    const searchInput = document.getElementById("searchInput");
+    const searchForm = document.getElementById("searchForm");
+
+    const categoryChips = document.querySelectorAll(".category-chip");
+    const feedTabs = document.querySelectorAll(".feed-tab");
+
+    const themeToggle = document.getElementById("themeToggle");
+
+    const notificationToggle = document.getElementById("notificationToggle");
+    const notificationPanel = document.getElementById("notificationPanel");
 
     const profileButton = document.getElementById("profileButton");
+    const profileAvatar = document.getElementById("profileAvatar");
+
     const authOverlay = document.getElementById("authOverlay");
     const authClose = document.getElementById("authClose");
-
-    // Open account window
-    if (profileButton && authOverlay) {
-        profileButton.addEventListener("click", function () {
-            authOverlay.hidden = false;
-        });
-    }
-
-    // Close account window
-    if (authClose && authOverlay) {
-        authClose.addEventListener("click", function () {
-            authOverlay.hidden = true;
-        });
-    }
-
-    // Close when clicking outside the account window
-    if (authOverlay) {
-        authOverlay.addEventListener("click", function (event) {
-            if (event.target === authOverlay) {
-                authOverlay.hidden = true;
-            }
-        });
-    }
-
-});
-
-// VOXORA USER REGISTRATION
-
-
-// VOXORA REGISTRATION AND LOGIN
-
-document.addEventListener("DOMContentLoaded", function () {
-
     const authForm = document.getElementById("authForm");
+
     const authUsername = document.getElementById("authUsername");
     const authEmail = document.getElementById("authEmail");
     const authPassword = document.getElementById("authPassword");
+
     const authMessage = document.getElementById("authMessage");
     const authSubmit = document.getElementById("authSubmit");
+
     const usernameField = document.getElementById("usernameField");
+
     const authSwitch = document.getElementById("authSwitch");
     const authSwitchButton = document.getElementById("authSwitchButton");
+
     const authTitle = document.getElementById("authTitle");
     const authDescription = document.getElementById("authDescription");
 
-    if (!authForm) {
-        console.error("VOXORA account form not found.");
-        return;
+    const accountProfile = document.getElementById("accountProfile");
+    const accountUsername = document.getElementById("accountUsername");
+    const accountEmail = document.getElementById("accountEmail");
+
+    const logoutButton = document.getElementById("logoutButton");
+
+    const createDebateForm = document.getElementById("createDebateForm");
+    const createDebateMessage = document.getElementById("createDebateMessage");
+    const publishDebateButton = document.getElementById("publishDebateButton");
+
+    const debateTitle = document.getElementById("debateTitle");
+    const debateDescription = document.getElementById("debateDescription");
+    const debateCategory = document.getElementById("debateCategory");
+    const debateSideA = document.getElementById("debateSideA");
+    const debateSideB = document.getElementById("debateSideB");
+
+    // ============================================
+    // 3. APPLICATION STATE
+    // ============================================
+
+    let currentCategory = "all";
+    let currentFeed = "latest";
+    let currentSearch = "";
+
+    let currentUser = null;
+    let isSignupMode = true;
+
+    let allDebates = [];
+
+    // ============================================
+    // 4. HELPER FUNCTIONS
+    // ============================================
+
+    function escapeHTML(value) {
+        const div = document.createElement("div");
+        div.textContent = value ?? "";
+        return div.innerHTML;
     }
 
-    let authMode = "signup";
+    function showMessage(element, message, type = "info") {
 
-    // Switch between registration and login
-    authSwitchButton.addEventListener("click", function () {
+        if (!element) return;
 
-        authMode = authMode === "signup" ? "login" : "signup";
+        element.textContent = message;
 
-        authMessage.textContent = "";
+        element.className = "message " + type;
 
-        if (authMode === "login") {
-            usernameField.hidden = true;
-            authUsername.required = false;
-            authPassword.autocomplete = "current-password";
+        element.style.display = "block";
+    }
 
-            authTitle.textContent = "Welcome back.";
-            authDescription.textContent = "Sign in to continue the conversation.";
-            authSubmit.textContent = "Sign in";
+    function hideMessage(element) {
 
-            authSwitch.firstChild.textContent = "New to VOXORA? ";
-            authSwitchButton.textContent = "Create account";
+        if (!element) return;
 
-        } else {
-            usernameField.hidden = false;
-            authUsername.required = true;
-            authPassword.autocomplete = "new-password";
+        element.textContent = "";
+        element.style.display = "none";
+    }
 
-            authTitle.textContent = "Join the conversation.";
-            authDescription.textContent = "Create an account to share your voice.";
-            authSubmit.textContent = "Create account";
+    function formatDate(dateString) {
 
-            authSwitch.firstChild.textContent = "Already have an account? ";
-            authSwitchButton.textContent = "Sign in";
+        if (!dateString) return "Recently";
+
+        const date = new Date(dateString);
+
+        if (isNaN(date.getTime())) {
+            return "Recently";
         }
 
+        const now = new Date();
+
+        const difference = now - date;
+
+        const minutes = Math.floor(difference / 60000);
+        const hours = Math.floor(minutes / 60);
+        const days = Math.floor(hours / 24);
+
+        if (minutes < 1) return "Just now";
+
+        if (minutes < 60) {
+            return `${minutes}m ago`;
+        }
+
+        if (hours < 24) {
+            return `${hours}h ago`;
+        }
+
+        if (days < 7) {
+            return `${days}d ago`;
+        }
+
+        return date.toLocaleDateString();
+    }
+
+    function getInitials(username) {
+
+        if (!username) return "VO";
+
+        return username
+            .split(" ")
+            .map(word => word.charAt(0))
+            .join("")
+            .substring(0, 2)
+            .toUpperCase();
+    }
+
+    function getCategoryColor(category) {
+
+        const colors = {
+            society: "purple",
+            technology: "blue",
+            politics: "red",
+            education: "orange",
+            environment: "green",
+            entertainment: "pink",
+            science: "cyan",
+            other: "gray"
+        };
+
+        return colors[category?.toLowerCase()] || "gray";
+    }
+
+    // ============================================
+    // 5. SEARCH FUNCTIONALITY
+    // ============================================
+
+    function performSearch() {
+
+        if (!searchInput) return;
+
+        currentSearch = searchInput.value.trim().toLowerCase();
+
+        renderDebates();
+    }
+
+    if (searchInput) {
+
+        searchInput.addEventListener("input", performSearch);
+    }
+
+    if (searchForm) {
+
+        searchForm.addEventListener("submit", function (event) {
+
+            event.preventDefault();
+
+            performSearch();
+        });
+    }
+
+    // ============================================
+    // 6. CATEGORY FILTERS
+    // ============================================
+
+    categoryChips.forEach(chip => {
+
+        chip.addEventListener("click", function () {
+
+            categoryChips.forEach(item => {
+                item.classList.remove("active");
+            });
+
+            this.classList.add("active");
+
+            currentCategory = this.dataset.category || "all";
+
+            renderDebates();
+        });
     });
 
-    // Handle registration and login
-    authForm.addEventListener("submit", async function (event) {
+    // ============================================
+    // 7. TRENDING TOPICS
+    // ============================================
 
-        event.preventDefault();
+    document.querySelectorAll(".trending-item").forEach(item => {
 
-        const email = authEmail.value.trim();
-        const password = authPassword.value;
+        item.addEventListener("click", function () {
 
-        authSubmit.disabled = true;
-        authMessage.textContent = "";
+            const topic = this.dataset.topic || this.textContent.trim();
 
-        try {
+            if (searchInput) {
 
-            if (authMode === "signup") {
+                searchInput.value = topic;
 
-                const username = authUsername.value.trim().toLowerCase();
+                currentSearch = topic.toLowerCase();
 
-                if (!/^[a-z0-9_]{3,24}$/.test(username)) {
-                    throw new Error("Username must contain 3–24 letters, numbers or underscores.");
-                }
+                renderDebates();
+            }
+        });
+    });
 
-                if (password.length < 8) {
-                    throw new Error("Password must contain at least 8 characters.");
-                }
+    // ============================================
+    // 8. FEED FILTERS
+    // ============================================
 
-                authSubmit.textContent = "Creating account...";
+    feedTabs.forEach(tab => {
 
-                const { data, error } =
-                    await supabaseClient.auth.signUp({
-                        email,
-                        password,
-                        options: {
-                            data: { username }
-                        }
-                    });
+        tab.addEventListener("click", function () {
 
-                if (error) throw error;
+            feedTabs.forEach(item => {
+                item.classList.remove("active");
+            });
 
-                if (data.session) {
-                    authMessage.textContent = "Your VOXORA account has been created!";
-                } else {
-                    authMessage.textContent =
-                        "Account created! Check your email to confirm your address.";
-                }
+            this.classList.add("active");
+
+            currentFeed = this.dataset.feed || "latest";
+
+            renderDebates();
+        });
+    });
+
+    // ============================================
+    // 9. DARK / LIGHT MODE
+    // ============================================
+
+    const savedTheme = localStorage.getItem("voxora-theme");
+
+    if (savedTheme === "light") {
+
+        document.body.classList.add("light-mode");
+
+    } else {
+
+        document.body.classList.remove("light-mode");
+    }
+
+    if (themeToggle) {
+
+        themeToggle.addEventListener("click", function () {
+
+            document.body.classList.toggle("light-mode");
+
+            const isLight = document.body.classList.contains("light-mode");
+
+            localStorage.setItem(
+                "voxora-theme",
+                isLight ? "light" : "dark"
+            );
+        });
+    }
+
+    // ============================================
+    // 10. NOTIFICATIONS
+    // ============================================
+
+    if (notificationToggle && notificationPanel) {
+
+        notificationToggle.addEventListener("click", function (event) {
+
+            event.stopPropagation();
+
+            notificationPanel.classList.toggle("active");
+        });
+
+        document.addEventListener("click", function (event) {
+
+            if (
+                !notificationPanel.contains(event.target) &&
+                !notificationToggle.contains(event.target)
+            ) {
+
+                notificationPanel.classList.remove("active");
+            }
+        });
+    }
+
+    // ============================================
+    // 11. AUTHENTICATION MODAL
+    // ============================================
+
+    function openAuthModal() {
+
+        if (!authOverlay) return;
+
+        authOverlay.classList.add("active");
+
+        document.body.style.overflow = "hidden";
+    }
+
+    function closeAuthModal() {
+
+        if (!authOverlay) return;
+
+        authOverlay.classList.remove("active");
+
+        document.body.style.overflow = "";
+    }
+
+    if (profileButton) {
+
+        profileButton.addEventListener("click", function () {
+
+            if (currentUser) {
+
+                openAccountProfile();
 
             } else {
 
-                authSubmit.textContent = "Signing in...";
+                openAuthModal();
+            }
+        });
+    }
 
-                const { error } =
-                    await supabaseClient.auth.signInWithPassword({
-                        email,
-                        password
-                    });
+    if (authClose) {
 
-                if (error) throw error;
+        authClose.addEventListener("click", closeAuthModal);
+    }
 
-                authMessage.textContent = "Welcome back to VOXORA!";
+    if (authOverlay) {
 
-                authForm.reset();
+        authOverlay.addEventListener("click", function (event) {
+
+            if (event.target === authOverlay) {
+
+                closeAuthModal();
+            }
+        });
+    }
+
+    document.addEventListener("keydown", function (event) {
+
+        if (event.key === "Escape") {
+
+            closeAuthModal();
+        }
+    });
+
+    // ============================================
+    // 12. SIGNUP / LOGIN SWITCH
+    // ============================================
+
+    function updateAuthMode() {
+
+        if (isSignupMode) {
+
+            if (authTitle) {
+                authTitle.textContent = "Create Account";
+            }
+
+            if (authDescription) {
+                authDescription.textContent =
+                    "Join VOXORA and start sharing your opinions.";
+            }
+
+            if (authSubmit) {
+                authSubmit.textContent = "Create Account";
+            }
+
+            if (usernameField) {
+                usernameField.style.display = "block";
+            }
+
+            if (authUsername) {
+                authUsername.required = true;
+            }
+
+            if (authSwitch) {
+                authSwitch.innerHTML = "Already have an account?";
+            }
+
+            if (authSwitchButton) {
+                authSwitchButton.textContent = "Login";
+            }
+
+        } else {
+
+            if (authTitle) {
+                authTitle.textContent = "Welcome Back";
+            }
+
+            if (authDescription) {
+                authDescription.textContent =
+                    "Login to continue your VOXORA journey.";
+            }
+
+            if (authSubmit) {
+                authSubmit.textContent = "Login";
+            }
+
+            if (usernameField) {
+                usernameField.style.display = "none";
+            }
+
+            if (authUsername) {
+                authUsername.required = false;
+            }
+
+            if (authSwitch) {
+                authSwitch.innerHTML = "Don't have an account?";
+            }
+
+            if (authSwitchButton) {
+                authSwitchButton.textContent = "Sign Up";
+            }
+        }
+
+        hideMessage(authMessage);
+    }
+
+    if (authSwitchButton) {
+
+        authSwitchButton.addEventListener("click", function () {
+
+            isSignupMode = !isSignupMode;
+
+            updateAuthMode();
+        });
+    }
+
+    // ============================================
+    // 13. SIGNUP AND LOGIN
+    // ============================================
+
+    if (authForm) {
+
+        authForm.addEventListener("submit", async function (event) {
+
+            event.preventDefault();
+
+            hideMessage(authMessage);
+
+            const email = authEmail?.value.trim();
+            const password = authPassword?.value;
+            const username = authUsername?.value.trim();
+
+            if (!email || !password) {
+
+                showMessage(
+                    authMessage,
+                    "Please fill in all required fields.",
+                    "error"
+                );
+
+                return;
+            }
+
+            if (isSignupMode) {
+
+                if (!username) {
+
+                    showMessage(
+                        authMessage,
+                        "Please enter a username.",
+                        "error"
+                    );
+
+                    return;
+                }
+
+                if (username.length < 3) {
+
+                    showMessage(
+                        authMessage,
+                        "Your username must contain at least 3 characters.",
+                        "error"
+                    );
+
+                    return;
+                }
+
+                if (password.length < 6) {
+
+                    showMessage(
+                        authMessage,
+                        "Your password must contain at least 6 characters.",
+                        "error"
+                    );
+
+                    return;
+                }
+            }
+
+            if (authSubmit) {
+
+                authSubmit.disabled = true;
+
+                authSubmit.textContent = "Please wait...";
+            }
+
+            try {
+
+                if (isSignupMode) {
+
+                    const { data, error } =
+                        await supabaseClient.auth.signUp({
+
+                            email: email,
+
+                            password: password,
+
+                            options: {
+
+                                data: {
+                                    username: username
+                                }
+                            }
+                        });
+
+                    if (error) throw error;
+
+                    if (data.user) {
+
+                        showMessage(
+                            authMessage,
+                            "Account created! Check your email to confirm your account.",
+                            "success"
+                        );
+
+                        authForm.reset();
+                    }
+
+                } else {
+
+                    const { data, error } =
+                        await supabaseClient.auth.signInWithPassword({
+
+                            email: email,
+
+                            password: password
+                        });
+
+                    if (error) throw error;
+
+                    currentUser = data.user;
+
+                    closeAuthModal();
+
+                    await updateAccountUI();
+
+                    await loadDebates();
+                }
+
+            } catch (error) {
+
+                console.error("Authentication error:", error);
+
+                showMessage(
+                    authMessage,
+                    error.message || "Something went wrong.",
+                    "error"
+                );
+
+            } finally {
+
+                if (authSubmit) {
+
+                    authSubmit.disabled = false;
+
+                    updateAuthMode();
+                }
+            }
+        });
+    }
+
+    // ============================================
+    // 14. ACCOUNT PROFILE
+    // ============================================
+
+    function openAccountProfile() {
+
+        if (!accountProfile) return;
+
+        accountProfile.classList.add("active");
+
+        document.body.style.overflow = "hidden";
+    }
+
+    function closeAccountProfile() {
+
+        if (!accountProfile) return;
+
+        accountProfile.classList.remove("active");
+
+        document.body.style.overflow = "";
+    }
+
+    if (accountProfile) {
+
+        accountProfile.addEventListener("click", function (event) {
+
+            if (event.target === accountProfile) {
+
+                closeAccountProfile();
+            }
+        });
+    }
+
+    // ============================================
+    // 15. UPDATE ACCOUNT UI
+    // ============================================
+
+    async function updateAccountUI() {
+
+        if (!currentUser) {
+
+            if (profileAvatar) {
+                profileAvatar.textContent = "👤";
+            }
+
+            return;
+        }
+
+        let username = currentUser.user_metadata?.username || "User";
+
+        try {
+
+            const { data: profile, error } = await supabaseClient
+                .from("profiles")
+                .select("username")
+                .eq("id", currentUser.id)
+                .maybeSingle();
+
+            if (error) {
+
+                console.warn("Could not load profile:", error.message);
+
+            } else if (profile?.username) {
+
+                username = profile.username;
             }
 
         } catch (error) {
 
-            console.error("VOXORA authentication error:", error);
-            authMessage.textContent = error.message;
-
-        } finally {
-
-            authSubmit.disabled = false;
-            authSubmit.textContent =
-                authMode === "signup" ? "Create account" : "Sign in";
-
+            console.warn("Profile loading error:", error);
         }
 
-    });
+        if (profileAvatar) {
 
-});
+            profileAvatar.textContent = getInitials(username);
+        }
 
+        if (accountUsername) {
 
-// VOXORA - Logged-in user profile
+            accountUsername.textContent = username;
+        }
 
-document.addEventListener("DOMContentLoaded", function () {
-    const accountProfile = document.getElementById("accountProfile");
-    const accountUsername = document.getElementById("accountUsername");
-    const accountEmail = document.getElementById("accountEmail");
-    const authForm = document.getElementById("authForm");
-    const authSwitch = document.getElementById("authSwitch");
-    const authTitle = document.getElementById("authTitle");
-    const authDescription = document.getElementById("authDescription");
-    const logoutButton = document.getElementById("logoutButton");
-    const profileAvatar = document.getElementById("profileAvatar");
-    const profileButton = document.getElementById("profileButton");
-    const authMessage = document.getElementById("authMessage");
+        if (accountEmail) {
 
-    // Display the signed-in user's information
-    async function updateAccountUI(user) {
-        if (user) {
-            let username = user.user_metadata?.username || "VOXORA User";
+            accountEmail.textContent = currentUser.email || "";
+        }
+    }
 
-            // Get the username saved in the profiles table
-            const { data, error } = await supabaseClient
-                .from("profiles")
-                .select("username")
-                .eq("id", user.id)
-                .maybeSingle();
+    // ============================================
+    // 16. LOGOUT
+    // ============================================
+
+    if (logoutButton) {
+
+        logoutButton.addEventListener("click", async function () {
+
+            const { error } = await supabaseClient.auth.signOut();
 
             if (error) {
-                console.error("Could not load profile:", error.message);
+
+                console.error("Logout error:", error);
+
+                return;
             }
 
-            if (data?.username) {
-                username = data.username;
-            }
+            currentUser = null;
 
-            accountUsername.textContent = "@" + username;
-            accountEmail.textContent = user.email || "";
+            closeAccountProfile();
 
-            accountProfile.hidden = false;
-            authForm.hidden = true;
-            authSwitch.hidden = true;
-            logoutButton.hidden = false;
+            await updateAccountUI();
 
-            authTitle.textContent = "Your VOXORA account";
-            authDescription.textContent = "You're signed in.";
-            authMessage.textContent = "";
+            await loadDebates();
 
-            profileAvatar.textContent = username.charAt(0).toUpperCase();
-            profileButton.setAttribute("aria-label", "Your account: " + username);
-        } else {
-            accountProfile.hidden = true;
-            authForm.hidden = false;
-            authSwitch.hidden = false;
-            logoutButton.hidden = true;
-
-            authTitle.textContent = "Join the conversation.";
-            authDescription.textContent = "Create an account to share your voice.";
-
-            profileAvatar.textContent = "Y";
-            profileButton.setAttribute("aria-label", "Sign in or view your profile");
-        }
-    }
-
-    // Check whether a user is already signed in
-    supabaseClient.auth.getSession().then(({ data, error }) => {
-        if (error) {
-            console.error("Session check failed:", error.message);
-            return;
-        }
-
-        updateAccountUI(data.session?.user || null);
-    });
-
-    // Listen for login and logout events
-    supabaseClient.auth.onAuthStateChange((event, session) => {
-        updateAccountUI(session?.user || null);
-    });
-
-    // Log out the current user
-    logoutButton.addEventListener("click", async function () {
-        logoutButton.disabled = true;
-        logoutButton.textContent = "Logging out...";
-
-        const { error } = await supabaseClient.auth.signOut();
-
-        if (error) {
-            console.error("Logout failed:", error.message);
-            authMessage.textContent = "Could not log out. Please try again.";
-        }
-
-        logoutButton.disabled = false;
-        logoutButton.textContent = "Log out";
-    });
-
-    // CREATE DEBATE FUNCTIONALITY
-
-const createDebateForm = document.getElementById("createDebateForm");
-const createDebateMessage = document.getElementById("createDebateMessage");
-const publishDebateButton = document.getElementById("publishDebateButton");
-
-createDebateForm.addEventListener("submit", async function (event) {
-    event.preventDefault();
-
-    publishDebateButton.disabled = true;
-    publishDebateButton.textContent = "Publishing...";
-    createDebateMessage.textContent = "";
-
-    try {
-        const { data: { user }, error: userError } =
-            await supabaseClient.auth.getUser();
-
-        if (userError || !user) {
-            createDebateMessage.textContent = "Please log in to publish a debate.";
-            return;
-        }
-
-        const debate = {
-            author_id: user.id,
-            title: document.getElementById("debateTitle").value.trim(),
-            description: document.getElementById("debateDescription").value.trim(),
-            category: document.getElementById("debateCategory").value,
-            side_a: document.getElementById("debateSideA").value.trim(),
-            side_b: document.getElementById("debateSideB").value.trim()
-        };
-
-        const { error } = await supabaseClient
-            .from("debates")
-            .insert(debate);
-
-        if (error) {
-            throw error;
-        }
-
-        createDebateMessage.textContent = "Your debate has been published successfully!";
-        createDebateForm.reset();
-        await loadDebates();
-    } catch (error) {
-        console.error("Debate publishing error:", error.message);
-        createDebateMessage.textContent = "Something went wrong. Please try again.";
-    } finally {
-        publishDebateButton.disabled = false;
-        publishDebateButton.textContent = "Publish debate";
-    }
-});
-
-// LOAD DEBATES FROM SUPABASE
-
-async function loadDebates() {
-    const debateList = document.getElementById("debateList");
-
-    debateList.innerHTML = "<p>Loading debates...</p>";
-
-    try {
-        // 1. Retrieve debates from Supabase
-        const { data: debates, error } = await supabaseClient
-            .from("debates")
-            .select("*")
-            .order("created_at", { ascending: false });
-
-        if (error) {
-            throw error;
-        }
-
-        // 2. Handle an empty feed
-        if (!debates || debates.length === 0) {
-            debateList.innerHTML = "<p>No debates yet. Be the first to start one!</p>";
-            return;
-        }
-
-        // 3. Retrieve the authors' profile information
-        const authorIds = [...new Set(debates.map(debate => debate.author_id))];
-
-        const { data: profiles, error: profileError } = await supabaseClient
-            .from("profiles")
-            .select("id, username, full_name")
-            .in("id", authorIds);
-
-        if (profileError) {
-            console.warn("Could not load profiles:", profileError.message);
-        }
-
-        // 4. Match each debate with its author
-        const profileMap = {};
-
-        (profiles || []).forEach(profile => {
-            profileMap[profile.id] = profile;
+            console.log("Logged out successfully.");
         });
+    }
 
-        // 5. Create a card for each debate
+    // ============================================
+    // 17. SESSION MANAGEMENT
+    // ============================================
+
+    async function checkSession() {
+
+        const { data, error } =
+            await supabaseClient.auth.getSession();
+
+        if (error) {
+
+            console.error("Session error:", error.message);
+
+            return;
+        }
+
+        currentUser = data.session?.user || null;
+
+        await updateAccountUI();
+    }
+
+    supabaseClient.auth.onAuthStateChange(
+        async function (event, session) {
+
+            currentUser = session?.user || null;
+
+            await updateAccountUI();
+
+            console.log("Auth event:", event);
+        }
+    );
+
+    // ============================================
+    // 18. CREATE DEBATE
+    // ============================================
+
+    if (createDebateForm) {
+
+        createDebateForm.addEventListener("submit", async function (event) {
+
+            event.preventDefault();
+
+            hideMessage(createDebateMessage);
+
+            if (!currentUser) {
+
+                showMessage(
+                    createDebateMessage,
+                    "Please login before creating a debate.",
+                    "error"
+                );
+
+                openAuthModal();
+
+                return;
+            }
+
+            const title = debateTitle?.value.trim();
+            const description = debateDescription?.value.trim();
+            const category = debateCategory?.value;
+            const sideA = debateSideA?.value.trim();
+            const sideB = debateSideB?.value.trim();
+
+            if (!title || !description || !category || !sideA || !sideB) {
+
+                showMessage(
+                    createDebateMessage,
+                    "Please complete all debate fields.",
+                    "error"
+                );
+
+                return;
+            }
+
+            if (publishDebateButton) {
+
+                publishDebateButton.disabled = true;
+
+                publishDebateButton.textContent = "Publishing...";
+            }
+
+            try {
+
+                const { data, error } = await supabaseClient
+                    .from("debates")
+                    .insert({
+
+                        author_id: currentUser.id,
+
+                        title: title,
+
+                        description: description,
+
+                        category: category,
+
+                        side_a: sideA,
+
+                        side_b: sideB,
+
+                        status: "open"
+                    })
+                    .select()
+                    .single();
+
+                if (error) throw error;
+
+                showMessage(
+                    createDebateMessage,
+                    "Your debate has been published successfully!",
+                    "success"
+                );
+
+                createDebateForm.reset();
+
+                // Immediately update the feed
+                await loadDebates();
+
+                // Scroll to the debate feed
+                if (debateList) {
+
+                    debateList.scrollIntoView({
+
+                        behavior: "smooth",
+
+                        block: "start"
+                    });
+                }
+
+                console.log("Debate published:", data);
+
+            } catch (error) {
+
+                console.error("Publishing error:", error);
+
+                showMessage(
+                    createDebateMessage,
+                    error.message || "Could not publish your debate.",
+                    "error"
+                );
+
+            } finally {
+
+                if (publishDebateButton) {
+
+                    publishDebateButton.disabled = false;
+
+                    publishDebateButton.textContent = "Publish Debate";
+                }
+            }
+        });
+    }
+
+    // ============================================
+    // 19. LOAD DEBATES FROM SUPABASE
+    // ============================================
+
+    async function loadDebates() {
+
+        if (!debateList) {
+
+            console.error("Debate list element not found.");
+
+            return;
+        }
+
+        debateList.innerHTML = `
+            <div class="loading-message">
+                <p>Loading debates...</p>
+            </div>
+        `;
+
+        try {
+
+            const { data, error } = await supabaseClient
+                .from("debates")
+                .select("*")
+                .order("created_at", { ascending: false });
+
+            if (error) throw error;
+
+            allDebates = data || [];
+
+            // Try to load author profiles
+            await loadDebateProfiles();
+
+            renderDebates();
+
+            console.log("Debates loaded:", allDebates.length);
+
+        } catch (error) {
+
+            console.error("Could not load debates:", error);
+
+            debateList.innerHTML = `
+                <div class="error-message">
+                    <h3>Unable to load debates</h3>
+                    <p>Please check your connection and try again.</p>
+                </div>
+            `;
+        }
+    }
+
+    // ============================================
+    // 20. LOAD DEBATE AUTHOR PROFILES
+    // ============================================
+
+    async function loadDebateProfiles() {
+
+        if (!allDebates.length) return;
+
+        const authorIds = [
+            ...new Set(allDebates.map(debate => debate.author_id))
+        ];
+
+        if (!authorIds.length) return;
+
+        try {
+
+            const { data, error } = await supabaseClient
+                .from("profiles")
+                .select("id, username")
+                .in("id", authorIds);
+
+            if (error) throw error;
+
+            const profiles = data || [];
+
+            allDebates = allDebates.map(debate => {
+
+                const profile = profiles.find(
+                    item => item.id === debate.author_id
+                );
+
+                return {
+
+                    ...debate,
+
+                    author_username:
+                        profile?.username ||
+                        "VOXORA Member"
+                };
+            });
+
+        } catch (error) {
+
+            console.warn("Could not load profiles:", error.message);
+
+            allDebates = allDebates.map(debate => ({
+
+                ...debate,
+
+                author_username:
+                    debate.author_username ||
+                    "VOXORA Member"
+            }));
+        }
+    }
+
+    // ============================================
+    // 21. FILTER DEBATES
+    // ============================================
+
+    function getFilteredDebates() {
+
+        let debates = [...allDebates];
+
+        // Category filtering
+        if (currentCategory !== "all") {
+
+            debates = debates.filter(debate =>
+
+                debate.category?.toLowerCase() ===
+                currentCategory.toLowerCase()
+            );
+        }
+
+        // Search filtering
+        if (currentSearch) {
+
+            debates = debates.filter(debate => {
+
+                const searchableText = [
+
+                    debate.title,
+
+                    debate.description,
+
+                    debate.category,
+
+                    debate.side_a,
+
+                    debate.side_b,
+
+                    debate.author_username
+
+                ].join(" ").toLowerCase();
+
+                return searchableText.includes(currentSearch);
+            });
+        }
+
+        // Feed sorting
+        if (currentFeed === "latest") {
+
+            debates.sort((a, b) =>
+
+                new Date(b.created_at) - new Date(a.created_at)
+            );
+
+        } else if (currentFeed === "popular") {
+
+            debates.sort((a, b) =>
+
+                getLikeCount(b.id) - getLikeCount(a.id)
+            );
+
+        } else if (currentFeed === "following") {
+
+            if (currentUser) {
+
+                debates = debates.filter(debate =>
+
+                    debate.author_id === currentUser.id
+                );
+
+            } else {
+
+                debates = [];
+            }
+        }
+
+        return debates;
+    }
+
+    // ============================================
+    // 22. LOCAL LIKE STORAGE
+    // ============================================
+
+    function getLikeCount(debateId) {
+
+        const likes = JSON.parse(
+            localStorage.getItem("voxora-likes") || "{}"
+        );
+
+        return likes[debateId]?.count || 0;
+    }
+
+    function isLiked(debateId) {
+
+        const likes = JSON.parse(
+            localStorage.getItem("voxora-likes") || "{}"
+        );
+
+        return likes[debateId]?.liked || false;
+    }
+
+    function toggleLike(debateId) {
+
+        const likes = JSON.parse(
+            localStorage.getItem("voxora-likes") || "{}"
+        );
+
+        if (!likes[debateId]) {
+
+            likes[debateId] = {
+
+                count: 0,
+
+                liked: false
+            };
+        }
+
+        if (likes[debateId].liked) {
+
+            likes[debateId].count--;
+
+            likes[debateId].liked = false;
+
+        } else {
+
+            likes[debateId].count++;
+
+            likes[debateId].liked = true;
+        }
+
+        localStorage.setItem(
+            "voxora-likes",
+            JSON.stringify(likes)
+        );
+    }
+
+    // ============================================
+    // 23. SAVE DEBATES
+    // ============================================
+
+    function isSaved(debateId) {
+
+        const saved = JSON.parse(
+            localStorage.getItem("voxora-saved") || "[]"
+        );
+
+        return saved.includes(debateId);
+    }
+
+    function toggleSave(debateId) {
+
+        let saved = JSON.parse(
+            localStorage.getItem("voxora-saved") || "[]"
+        );
+
+        if (saved.includes(debateId)) {
+
+            saved = saved.filter(id => id !== debateId);
+
+        } else {
+
+            saved.push(debateId);
+        }
+
+        localStorage.setItem(
+            "voxora-saved",
+            JSON.stringify(saved)
+        );
+    }
+
+    // ============================================
+    // 24. RENDER DEBATE CARDS
+    // ============================================
+
+    function renderDebates() {
+
+        if (!debateList) return;
+
+        const debates = getFilteredDebates();
+
+        if (debates.length === 0) {
+
+            debateList.innerHTML = "";
+
+            if (noResults) {
+
+                noResults.style.display = "block";
+            }
+
+            return;
+        }
+
+        if (noResults) {
+
+            noResults.style.display = "none";
+        }
+
         debateList.innerHTML = debates.map(debate => {
-            const profile = profileMap[debate.author_id];
 
-            const authorName = profile
-                ? (profile.username || profile.full_name || "Community member")
-                : "Community member";
+            const title = escapeHTML(debate.title);
 
-            const initials = authorName
-                .split(/\s+/)
-                .map(word => word.charAt(0))
-                .join("")
-                .substring(0, 2)
-                .toUpperCase();
+            const description = escapeHTML(debate.description);
 
-            const category = debate.category.charAt(0).toUpperCase()
-                + debate.category.slice(1);
+            const category = escapeHTML(debate.category);
+
+            const sideA = escapeHTML(debate.side_a);
+
+            const sideB = escapeHTML(debate.side_b);
+
+            const author = escapeHTML(
+                debate.author_username || "VOXORA Member"
+            );
+
+            const initials = escapeHTML(
+                getInitials(debate.author_username)
+            );
+
+            const date = formatDate(debate.created_at);
+
+            const liked = isLiked(debate.id);
+
+            const saved = isSaved(debate.id);
+
+            const likes = getLikeCount(debate.id);
+
+            const categoryColor = getCategoryColor(debate.category);
 
             return `
-                <article class="card debate-card" data-category="${escapeHTML(debate.category)}" data-votes="0">
+
+                <article class="card debate-card"
+                    data-category="${category}"
+                    data-votes="${likes}"
+                    data-date="${escapeHTML(debate.created_at)}">
 
                     <div class="debate-author">
-                        <span class="avatar avatar-purple">${escapeHTML(initials)}</span>
+
+                        <span class="avatar avatar-purple">
+                            ${initials}
+                        </span>
+
                         <div>
-                            <strong>${escapeHTML(authorName)}</strong>
-                            <small>Community member · ${formatDebateDate(debate.created_at)}</small>
+
+                            <strong>${author}</strong>
+
+                            <span class="debate-date">
+                                ${date}
+                            </span>
+
                         </div>
+
                     </div>
 
-                    <p class="category">${escapeHTML(category)}</p>
+                    <div class="debate-content">
 
-                    <h3>${escapeHTML(debate.title)}</h3>
+                        <span class="category-badge ${categoryColor}">
+                            ${category}
+                        </span>
 
-                    <p class="debate-description">
-                        ${escapeHTML(debate.description)}
-                    </p>
+                        <h3>${title}</h3>
 
-                    <div class="debate-positions">
-                        <p><strong>For:</strong> ${escapeHTML(debate.side_a)}</p>
-                        <p><strong>Against:</strong> ${escapeHTML(debate.side_b)}</p>
+                        <p>${description}</p>
+
                     </div>
 
-                    <div class="bar">
-                        <div class="bar-blue" style="width: 50%"></div>
+                    <div class="debate-sides">
+
+                        <div class="debate-side side-a">
+
+                            <span class="side-label">
+                                SIDE A
+                            </span>
+
+                            <p>${sideA}</p>
+
+                        </div>
+
+                        <div class="debate-side side-b">
+
+                            <span class="side-label">
+                                SIDE B
+                            </span>
+
+                            <p>${sideB}</p>
+
+                        </div>
+
                     </div>
 
-                    <small>No votes yet</small>
+                    <div class="debate-actions">
 
-                    <div class="card-actions">
-                        <button class="subtle-action" type="button">♡ Like</button>
-                        <button class="subtle-action" type="button">◯ Discuss</button>
-                        <button class="subtle-action save-button" type="button">☆ Save</button>
+                        <button class="like-button ${liked ? "liked" : ""}"
+                            data-debate-id="${debate.id}">
+
+                            <span class="like-icon">
+                                ${liked ? "❤️" : "🤍"}
+                            </span>
+
+                            <span class="like-count">
+                                ${likes}
+                            </span>
+
+                        </button>
+
+                        <button class="discuss-button"
+                            data-debate-id="${debate.id}">
+
+                            💬 Discuss
+
+                        </button>
+
+                        <button class="save-button ${saved ? "saved" : ""}"
+                            data-debate-id="${debate.id}">
+
+                            ${saved ? "🔖 Saved" : "🔖 Save"}
+
+                        </button>
+
                     </div>
 
                 </article>
-            `;
-        }).join("");
 
-    } catch (error) {
-        console.error("Could not load debates:", error.message);
-        debateList.innerHTML = "<p>We couldn't load debates. Please refresh and try again.</p>";
+            `;
+
+        }).join("");
     }
 
-}
+    // ============================================
+    // 25. DEBATE BUTTON EVENTS
+    // ============================================
 
-window.loadDebates = loadDebates;
+    if (debateList) {
 
+        debateList.addEventListener("click", function (event) {
 
-// PROTECT HTML FROM UNSAFE USER INPUT
+            const likeButton = event.target.closest(".like-button");
 
-function escapeHTML(value) {
-    return String(value ?? "").replace(/[&<>"']/g, function (character) {
-        const replacements = {
-            "&": "&amp;",
-            "<": "&lt;",
-            ">": "&gt;",
-            '"': "&quot;",
-            "'": "&#39;"
-        };
+            const saveButton = event.target.closest(".save-button");
 
-        return replacements[character];
-    });
-}
+            const discussButton = event.target.closest(".discuss-button");
 
+            // LIKE BUTTON
+            if (likeButton) {
 
-// FORMAT DEBATE DATE
+                const debateId = likeButton.dataset.debateId;
 
-function formatDebateDate(dateString) {
-    const date = new Date(dateString);
-    const now = new Date();
+                toggleLike(debateId);
 
-    const difference = now - date;
-    const minutes = Math.floor(difference / 60000);
-    const hours = Math.floor(difference / 3600000);
-    const days = Math.floor(difference / 86400000);
+                renderDebates();
 
-    if (minutes < 1) return "just now";
-    if (minutes < 60) return `${minutes} minutes ago`;
-    if (hours < 24) return `${hours} hours ago`;
-    if (days === 1) return "yesterday";
-    if (days < 7) return `${days} days ago`;
+                return;
+            }
 
-    return date.toLocaleDateString();
-}
+            // SAVE BUTTON
+            if (saveButton) {
 
+                const debateId = saveButton.dataset.debateId;
 
-// LOAD THE FEED WHEN THE PAGE OPENS
+                toggleSave(debateId);
 
-loadDebates();
+                renderDebates();
+
+                return;
+            }
+
+            // DISCUSS BUTTON
+            if (discussButton) {
+
+                const debateId = discussButton.dataset.debateId;
+
+                const debate = allDebates.find(
+                    item => item.id === debateId
+                );
+
+                if (debate) {
+
+                    alert(
+                        "Discussion feature coming soon!\n\n" +
+                        debate.title
+                    );
+                }
+            }
+        });
+    }
+
+    // ============================================
+    // 26. INITIALIZE THE APPLICATION
+    // ============================================
+
+    async function initializeApp() {
+
+        console.log("Initializing VOXORA...");
+
+        await checkSession();
+
+        await loadDebates();
+
+        console.log("VOXORA is ready!");
+    }
+
+    // Expose for debugging in browser Console
     window.loadDebates = loadDebates;
+
+    window.renderDebates = renderDebates;
+
+    // Start the application
+    initializeApp();
+
 });
