@@ -571,3 +571,133 @@ footer p + p { margin-top: 5px; }
         font-size: 13px;
     }
 }
+
+/* ---------- COMMENTS SECTION ---------- */
+
+.comments-container {
+    margin-top: 12px;
+    padding: 14px;
+    background: var(--surface-soft);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+
+.comments-list {
+    margin-bottom: 12px;
+}
+
+.comment-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.comment-input {
+    width: 100%;
+    min-height: 90px;
+    padding: 12px;
+    resize: vertical;
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 13px;
+    outline: none;
+}
+
+.comment-input:focus {
+    border-color: var(--blue);
+}
+
+.comment-input::placeholder {
+    color: var(--muted);
+}
+
+.comment-submit {
+    align-self: flex-end;
+    padding: 9px 16px;
+    background: var(--blue);
+    color: white;
+    border: none;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+}
+
+.comment-submit:hover {
+    opacity: 0.85;
+}
+
+/* ---------- VOTING BUTTONS ---------- */
+
+.voting-actions {
+    display: flex;
+    gap: 10px;
+    margin: 14px 0;
+}
+
+.vote-button {
+    flex: 1;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid;
+}
+
+/* Side A */
+.vote-button[data-vote="side_a"] {
+    background: rgba(59, 130, 246, 0.12);
+    color: #60a5fa;
+    border-color: rgba(59, 130, 246, 0.4);
+}
+
+.vote-button[data-vote="side_a"]:hover {
+    background: #2563eb;
+    color: white;
+}
+
+/* Side B */
+.vote-button[data-vote="side_b"] {
+    background: rgba(239, 68, 68, 0.12);
+    color: #f87171;
+    border-color: rgba(239, 68, 68, 0.4);
+}
+
+.vote-button[data-vote="side_b"]:hover {
+    background: #dc2626;
+    color: white;
+}
+
+.vote-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ---------- PUBLISHED COMMENTS ---------- */
+
+.comment-item {
+    padding: 12px;
+    margin-bottom: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.comment-content {
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.6;
+    margin: 0 0 6px;
+    overflow-wrap: anywhere;
+}
+
+.comment-date {
+    color: var(--muted);
+    font-size: 11px;
+}
