@@ -547,7 +547,7 @@ createDebateForm.addEventListener("submit", async function (event) {
 
         createDebateMessage.textContent = "Your debate has been published successfully!";
         createDebateForm.reset();
-
+        await loadDebates();
     } catch (error) {
         console.error("Debate publishing error:", error.message);
         createDebateMessage.textContent = "Something went wrong. Please try again.";
@@ -662,7 +662,10 @@ async function loadDebates() {
         console.error("Could not load debates:", error.message);
         debateList.innerHTML = "<p>We couldn't load debates. Please refresh and try again.</p>";
     }
+
 }
+
+window.loadDebates = loadDebates;
 
 
 // PROTECT HTML FROM UNSAFE USER INPUT
