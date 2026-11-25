@@ -1156,157 +1156,99 @@ document.addEventListener("DOMContentLoaded", function () {
     // 24. RENDER DEBATE CARDS
     // ============================================
 
-    function renderDebates() {
+function renderDebates() {
 
-        if (!debateList) return;
+    if (!debateList) return;
 
-        const debates = getFilteredDebates();
+    const debates = getFilteredDebates();
 
-        if (debates.length === 0) {
+    if (debates.length === 0) {
 
-            debateList.innerHTML = "";
-
-            if (noResults) {
-
-                noResults.style.display = "block";
-            }
-
-            return;
-        }
+        debateList.innerHTML = "";
 
         if (noResults) {
-
-            noResults.style.display = "none";
+            noResults.style.display = "block";
         }
 
-        debateList.innerHTML = debates.map(debate => {
-
-            const title = escapeHTML(debate.title);
-
-            const description = escapeHTML(debate.description);
-
-            const category = escapeHTML(debate.category);
-
-            const sideA = escapeHTML(debate.side_a);
-
-            const sideB = escapeHTML(debate.side_b);
-
-            const author = escapeHTML(
-                debate.author_username || "VOXORA Member"
-            );
-
-            const initials = escapeHTML(
-                getInitials(debate.author_username)
-            );
-
-            const date = formatDate(debate.created_at);
-
-            const liked = isLiked(debate.id);
-
-            const saved = isSaved(debate.id);
-
-            const likes = getLikeCount(debate.id);
-
-            const categoryColor = getCategoryColor(debate.category);
-
-            return `
-
-                <article class="card debate-card"
-                    data-category="${category}"
-                    data-votes="${likes}"
-                    data-date="${escapeHTML(debate.created_at)}">
-
-                    <div class="debate-author">
-
-                        <span class="avatar avatar-purple">
-                            ${initials}
-                        </span>
-
-                        <div>
-
-                            <strong>${author}</strong>
-
-                            <span class="debate-date">
-                                ${date}
-                            </span>
-
-                        </div>
-
-                    </div>
-
-                    <div class="debate-content">
-
-                        <span class="category-badge ${categoryColor}">
-                            ${category}
-                        </span>
-
-                        <h3>${title}</h3>
-
-                        <p>${description}</p>
-
-                    </div>
-
-                    <div class="debate-sides">
-
-                        <div class="debate-side side-a">
-
-                            <span class="side-label">
-                                SIDE A
-                            </span>
-
-                            <p>${sideA}</p>
-
-                        </div>
-
-                        <div class="debate-side side-b">
-
-                            <span class="side-label">
-                                SIDE B
-                            </span>
-
-                            <p>${sideB}</p>
-
-                        </div>
-
-                    </div>
-
-                    <div class="debate-actions">
-
-                        <button class="like-button ${liked ? "liked" : ""}"
-                            data-debate-id="${debate.id}">
-
-                            <span class="like-icon">
-                                ${liked ? "❤️" : "🤍"}
-                            </span>
-
-                            <span class="like-count">
-                                ${likes}
-                            </span>
-
-                        </button>
-
-                        <button class="discuss-button"
-                            data-debate-id="${debate.id}">
-
-                            💬 Discuss
-
-                        </button>
-
-                        <button class="save-button ${saved ? "saved" : ""}"
-                            data-debate-id="${debate.id}">
-
-                            ${saved ? "🔖 Saved" : "🔖 Save"}
-
-                        </button>
-
-                    </div>
-
-                </article>
-
-            `;
-
-        }).join("");
+        return;
     }
+
+    if (noResults) {
+        noResults.style.display = "none";
+    }
+
+    debateList.innerHTML = debates.map(debate => {
+
+        const title = escapeHTML(debate.title);
+        const description = escapeHTML(debate.description);
+        const category = escapeHTML(debate.category);
+        const sideA = escapeHTML(debate.side_a);
+        const sideB = escapeHTML(debate.side_b);
+        const author = escapeHTML(debate.author_username || "VOXORA Member");
+
+        const initials = escapeHTML(
+            getInitials(debate.author_username)
+        );
+
+        const date = formatDate(debate.created_at);
+        const liked = isLiked(debate.id);
+        const saved = isSaved(debate.id);
+        const likes = getLikeCount(debate.id);
+
+        return `
+            <article class="card debate-card"
+                data-category="${category}"
+                data-votes="${likes}"
+                data-date="${escapeHTML(debate.created_at)}">
+
+                <div class="debate-author">
+                    <span class="avatar avatar-purple">${initials}</span>
+                    <div>
+                        <strong>${author}</strong>
+                        <span>${date}</span>
+                    </div>
+                </div>
+
+                <div class="debate-content">
+                    <span class="category-badge">${category}</span>
+                    <h3>${title}</h3>
+                    <p>${description}</p>
+                </div>
+
+                <div class="debate-sides">
+                    <div class="debate-side side-a">
+                        <span class="side-label">SIDE A</span>
+                        <p>${sideA}</p>
+                    </div>
+
+                    <div class="debate-side side-b">
+                        <span class="side-label">SIDE B</span>
+                        <p>${sideB}</p>
+                    </div>
+                </div>
+
+                <div class="debate-actions">
+                    <button class="like-button ${liked ? "liked" : ""}"
+                        data-debate-id="${debate.id}">
+                        ${liked ? "❤️" : "🤍"} ${likes}
+                    </button>
+
+                    <button class="discuss-button"
+                        data-debate-id="${debate.id}">
+                        💬 Discuss
+                    </button>
+
+                    <button class="save-button ${saved ? "saved" : ""}"
+                        data-debate-id="${debate.id}">
+                        ${saved ? "🔖 Saved" : "🔖 Save"}
+                    </button>
+                </div>
+
+            </article>
+        `;
+
+    }).join("");
+}
 
     // ============================================
     // 25. DEBATE BUTTON EVENTS
